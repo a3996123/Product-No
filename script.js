@@ -35,7 +35,7 @@ const db = firebase.firestore();
 const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
 const fieldPath = firebase.firestore.FieldPath.documentId; 
 
-// ★★★ (新) 登入/權限 相關 ★★★
+// ★★★ 登入/權限 相關 ★★★
 let currentUser = null; // 儲存當前登入的使用者資訊
 const usersCollection = db.collection("users"); // "users" 資料庫
 
@@ -45,19 +45,19 @@ const materialsCollection = db.collection("materials"); // 儲存料號清單
 
 // --- 2. 取得 DOM 元素 ---
 
-// ★ (新) 登入/應用程式 主視圖
-const loginView = document.getElementById('loginView');
-const appView = document.getElementById('appView');
+// ★ (新) 登入/驗證 區域
 const loginForm = document.getElementById('loginForm');
 const loginIdInput = document.getElementById('loginIdInput');
 const loginButton = document.getElementById('loginButton');
+const welcomeMessage = document.getElementById('welcomeMessage');
+const userName = document.getElementById('userName');
+const logoutButton = document.getElementById('logoutButton');
 
 // 詳細頁
 const detailView = document.getElementById('detailView');
 const detailTitle = document.getElementById('detailTitle');
 const recordForm = document.getElementById('recordForm');
 const tableBody = document.getElementById('recordBody');
-// (已移除 operatorSelect)
 const barrelNumberInput = document.getElementById('barrelNumber');
 
 // 首頁 (料號清單 + 新增)
@@ -88,29 +88,28 @@ function checkLoginState() {
     if (userData) {
         currentUser = JSON.parse(userData);
         console.log("已登入:", currentUser.name);
-        showAppView(); // 顯示主應用程式
     } else {
-        console.log("未登入");
-        showLoginView(); // 顯示登入畫面
+        currentUser = null;
+        console.log("訪客模式");
     }
+    // 更新頂部的 Auth UI
+    updateAuthUI();
 }
 
 /**
- * 顯示登入畫面
+ * (新) 更新頂部的登入/歡迎 UI
  */
-function showLoginView() {
-    loginView.style.display = 'block';
-    appView.style.display = 'none';
-}
-
-/**
- * 顯示主應用程式畫面
- */
-function showAppView() {
-    loginView.style.display = 'none';
-    appView.style.display = 'block';
-    // 啟動路由，開始載入首頁資料
-    router();
+function updateAuthUI() {
+    if (currentUser) {
+        // 已登入
+        loginForm.style.display = 'none';
+        welcomeMessage.style.display = 'flex'; // (改為 flex 才會並排)
+        userName.innerText = currentUser.name;
+    } else {
+        // 未登入 (訪客)
+        loginForm.style.display = 'block';
+        welcomeMessage.style.display = 'none';
+    }
 }
 
 /**
@@ -131,11 +130,10 @@ loginForm.addEventListener("submit", async (e) => {
         if (docSnap.exists) {
             // 登入成功
             currentUser = { id: docSnap.id, ...docSnap.data() };
-            // 將使用者資訊存入 sessionStorage (關閉分頁即失效)
             sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
-            showAppView();
+            updateAuthUI();
+            router(); // ★ (新) 重新執行 router 來顯示表單
         } else {
-            // 登入失敗
             alert("工號錯誤或不存在！");
             loginIdInput.value = "";
         }
@@ -148,9 +146,18 @@ loginForm.addEventListener("submit", async (e) => {
     }
 });
 
+/**
+ * (新) 登出按鈕邏輯
+ */
+logoutButton.addEventListener("click", () => {
+    currentUser = null;
+    sessionStorage.removeItem('currentUser');
+    updateAuthUI();
+    router(); // ★ (新) 重新執行 router 來隱藏表單
+});
+
 
 // --- 4. 頁面導航 (路由) 邏輯 ---
-// (此區塊無變更)
 function router() {
     if (currentListener) { currentListener(); currentListener = null; }
     if (materialListListener) { materialListListener(); materialListListener = null; }
@@ -164,6 +171,10 @@ function router() {
     }
 }
 
+/**
+ * 顯示首頁
+ * ★★★ (已修改) 根據登入狀態顯示/隱藏 newMaterialForm ★★★
+ */
 function showHomePage() {
     homeView.style.display = 'block';
     detailView.style.display = 'none';
@@ -171,6 +182,13 @@ function showHomePage() {
     materialList.innerHTML = '<li>讀取中...</li>'; 
     searchMaterialSelect.innerHTML = '<option value="">讀取料號中...</option>';
     searchResults.style.display = 'none'; 
+
+    // ★ (新) 根據登入狀態，顯示或隱藏「新增料號」表單
+    if (currentUser) {
+        newMaterialForm.style.display = 'block';
+    } else {
+        newMaterialForm.style.display = 'none';
+    }
 
     materialListListener = materialsCollection
         .orderBy(fieldPath(), "asc")
@@ -199,14 +217,23 @@ function showHomePage() {
         });
 }
 
+/**
+ * 顯示詳細頁
+ * ★★★ (已修改) 根據登入狀態顯示/隱藏 recordForm ★★★
+ */
 function showDetailPage(materialLot) {
     homeView.style.display = 'none';
     detailView.style.display = 'block';
     detailTitle.innerText = `料號: ${materialLot}`;
-    
-    // (★ 已修改) 在進入詳細頁時，清空桶別輸入框
     if(barrelNumberInput) {
         barrelNumberInput.value = "";
+    }
+    
+    // ★ (新) 根據登入狀態，顯示或隱藏「新增桶別」表單
+    if (currentUser) {
+        recordForm.style.display = 'block';
+    } else {
+        recordForm.style.display = 'none';
     }
 
     currentListener = recordsCollection
@@ -247,21 +274,17 @@ function showDetailPage(materialLot) {
 // --- 5. 表單提交邏輯 ---
 
 /** * (桶別紀錄) 表單提交
- * ★★★ (已更新) 改用 currentUser 登入者資訊 ★★★
+ * (★ 已修改) 增加 !currentUser 檢查 (雖然表單已隱藏，但多一層防護)
  */
 recordForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     
-    // --- (已移除) operatorSelect ---
-    
-    // --- 1. 從登入狀態獲取操作員資訊 ---
     if (!currentUser) {
-        alert("登入狀態遺失，請重新整理頁面！");
+        alert("請先登入才能新增資料！");
         return;
     }
     const operatorName = currentUser.name;
     const operatorId = currentUser.id;
-    // --- 
 
     const barrelNumberString = barrelNumberInput.value.trim();
     if (!barrelNumberString || !currentMaterialLot) {
@@ -287,10 +310,9 @@ recordForm.addEventListener("submit", async (e) => {
         if (!querySnapshot.empty) {
             alert(`錯誤：桶別 "${barrelNumberString}" 已經存在於此料號！`);
         } else {
-            // ★ 儲存資料時，同時存入操作員姓名與工號
             await recordsCollection.add({
-                operator: operatorName,         // (新) 操作員姓名
-                operatorId: operatorId,       // (新) 操作員工號
+                operator: operatorName,
+                operatorId: operatorId,
                 barrelNumber_display: barrelNumberString,
                 barrelNumber_sort: barrelNumberAsNumber,
                 materialLot: currentMaterialLot,
@@ -298,7 +320,6 @@ recordForm.addEventListener("submit", async (e) => {
             });
             console.log("資料儲存成功!");
             barrelNumberInput.value = ""; 
-            // (移除 operatorSelect.focus())
         }
     } catch (error) {
         console.error("儲存失敗: ", error);
@@ -314,16 +335,13 @@ recordForm.addEventListener("submit", async (e) => {
 });
 
 
-/** * (新料號) 表單提交 (無變更)
+/** * (新料號) 表單提交
+ * (★ 已修改) 移除 !currentUser 檢查 (理由同上)
  */
 newMaterialForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     
-    // (★ 新) 權限檢查：只有登入者才能新增
-    if (!currentUser) { 
-        alert("請先登入！"); 
-        return; 
-    }
+    // (已移除 !currentUser 檢查, 因為表單在未登入時是隱藏的)
 
     let rawName = newMaterialInput.value.trim();
     if (!rawName) {
@@ -349,7 +367,6 @@ newMaterialForm.addEventListener("submit", async (e) => {
         } else {
             await docRef.set({
                 createdAt: serverTimestamp(),
-                // (新) 記錄是誰建立的
                 createdBy: { id: currentUser.id, name: currentUser.name } 
             });
             console.log("新料號儲存成功:", normalizedName);
@@ -411,7 +428,6 @@ searchForm.addEventListener("submit", async (e) => {
                     }) 
                     : 'N/A';
                 
-                // (★ 新) 顯示操作員姓名 (如果舊資料沒有 operatorId，就只顯示 operator)
                 const operatorDisplay = data.operatorId 
                     ? `${data.operator} (${data.operatorId})`
                     : data.operator;
@@ -440,7 +456,10 @@ searchForm.addEventListener("submit", async (e) => {
 
 // --- 6. 啟動路由 ---
 // ★★★ (新) 程式啟動點 ★★★
-// 網頁載入時，第一件事是檢查登入狀態，而不是直接跑 router
-window.addEventListener('load', checkLoginState);
+// 網頁載入時，同時檢查登入狀態並啟動路由
+window.addEventListener('load', () => {
+    checkLoginState();
+    router();
+});
 // 當 hash 改變時 (例如點擊料號)，才執行 router
 window.addEventListener('hashchange', router);
