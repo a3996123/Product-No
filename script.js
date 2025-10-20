@@ -177,50 +177,42 @@ recordForm.addEventListener("submit", (e) => {
     });
 });
 
-// ==========================================================
-// ===== ★★★ 以下是本次修改的重點 ★★★ =====
-// ==========================================================
-
 /** * (新) 新增料號 表單提交 (已更新防呆與 G- 邏輯)
  */
-newMaterialForm.addEventListener("submit", async (e) => { // ★ 1. 宣告為 async 異步函數
+newMaterialForm.addEventListener("submit", async (e) => { // 宣告為 async 異步函數
     e.preventDefault();
     
-    // --- 2. 標準化 (Normalization) 邏輯 ---
+    // --- 標準化 (Normalization) 邏輯 ---
     let rawName = newMaterialInput.value.trim();
     if (!rawName) {
         alert("請輸入料號！");
         return;
     }
-
-    // 規則 A: 全部轉大寫
     let normalizedName = rawName.toUpperCase(); 
-
-    // 規則 B: 如果開頭是 "G-"，則移除 "G-"
     if (normalizedName.startsWith("G-")) {
-        normalizedName = normalizedName.substring(2); // 取得 "G-" (第0, 1個字元) 後面的所有字元
+        normalizedName = normalizedName.substring(2);
     }
-    // (例如: "g-p1001-40" -> "G-P1001-40" -> "P1001-40")
-    // (例如: "p1001-40" -> "P1001-40")
-    // (例如: "b1001-02" -> "B1001-02")
 
-    // --- 3. 防呆：檢查是否存在 ---
-    
-    // 取得提交按鈕並暫時禁用，防止重複提交
+    // --- 防呆：檢查是否存在 ---
     const submitButton = newMaterialForm.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     submitButton.innerText = "檢查中...";
 
     try {
-        const docRef = materialsCollection.doc(normalizedName); // 取得標準化名稱的文件引用
-        const docSnap = await docRef.get(); // ★ 4. 使用 await 異步取得文件快照
+        const docRef = materialsCollection.doc(normalizedName);
+        const docSnap = await docRef.get(); 
 
-        if (docSnap.exists()) {
-            // ★ 5. 如果文件已存在
+        // ===============================================
+        // ===== ★★★ 錯誤修正處 ★★★ =====
+        // --- `exists()` 改為 `exists` ---
+        if (docSnap.exists) { 
+        // ===============================================
+            
+            // 如果文件已存在
             alert(`料號已存在 (${normalizedName})`);
             newMaterialInput.value = ""; // 清空輸入框
         } else {
-            // ★ 6. 如果文件不存在，才建立新文件
+            // 如果文件不存在，才建立新文件
             await docRef.set({
                 createdAt: serverTimestamp() // 紀錄一下建立時間
             });
@@ -232,15 +224,11 @@ newMaterialForm.addEventListener("submit", async (e) => { // ★ 1. 宣告為 as
         console.error("新增料號失敗: ", error);
         alert("操作失敗，請檢查網路連線或聯繫管理員。");
     } finally {
-        // ★ 7. 無論成功或失敗，最後都要恢復按鈕功能
+        // 無論成功或失敗，最後都要恢復按鈕功能
         submitButton.disabled = false;
-        submitButton.innerText = "儲存新料號";
+        submitButton.innerText = "儲存新M號";
     }
 });
-// ==========================================================
-// ===== ★★★ 以上是本次修改的重點 ★★★ =====
-// ==========================================================
-
 
 // --- 5. 啟動路由 ---
 window.addEventListener('load', router); // 頁面載入時執行
