@@ -15,11 +15,11 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
-const fieldPath = firebase.firestore.FieldPath.documentId; // ★ 用於字母排序
+const fieldPath = firebase.firestore.FieldPath.documentId; 
 
-// ★ 兩個資料集合
+// 兩個資料集合
 const recordsCollection = db.collection("records"); // 儲存桶別
-const materialsCollection = db.collection("materials"); // ★ (新) 儲存料號清單
+const materialsCollection = db.collection("materials"); // 儲存料號清單
 
 // --- 2. 取得 DOM 元素 ---
 const homeView = document.getElementById('homeView');
@@ -32,14 +32,14 @@ const tableBody = document.getElementById('recordBody');
 const operatorSelect = document.getElementById('operator');
 const barrelNumberInput = document.getElementById('barrelNumber');
 
-// ★ 首頁 (新)
+// 首頁 (新)
 const materialList = document.getElementById('materialList');
 const newMaterialForm = document.getElementById('newMaterialForm');
 const newMaterialInput = document.getElementById('newMaterialInput');
 
-// ★ 兩個監聽器
+// 兩個監聽器
 let currentListener = null; // 監聽桶別 (詳細頁)
-let materialListListener = null; // ★ (新) 監聽料號 (首頁)
+let materialListListener = null; // 監聽料號 (首頁)
 let currentMaterialLot = null;
 
 // --- 3. 頁面導航 (路由) 邏輯 ---
@@ -47,7 +47,7 @@ let currentMaterialLot = null;
 /** * 路由功能：檢查 URL 錨點並顯示對應頁面 
  */
 function router() {
-    // ★ 在切換頁面前，先中斷所有已存在的監聽器
+    // 在切換頁面前，先中斷所有已存在的監聽器
     if (currentListener) {
         currentListener();
         currentListener = null;
@@ -69,7 +69,7 @@ function router() {
     }
 }
 
-/** * 顯示首頁 (★ 已更新：從資料庫讀取料號清單)
+/** * 顯示首頁 (從資料庫讀取料號清單)
  */
 function showHomePage() {
     homeView.style.display = 'block';
@@ -77,7 +77,7 @@ function showHomePage() {
     tableBody.innerHTML = "";
     materialList.innerHTML = '<li>讀取中...</li>'; // 顯示讀取中
 
-    // ★ 監聽 materials 集合，並依字母順序排列
+    // 監聽 materials 集合，並依字母順序排列
     materialListListener = materialsCollection
         .orderBy(fieldPath(), "asc") // 依照文件ID(料號名稱) 字母順序排列
         .onSnapshot((snapshot) => {
@@ -87,7 +87,7 @@ function showHomePage() {
                 return;
             }
             snapshot.forEach((doc) => {
-                // doc.id 就是料號名稱 (例如 "B1001-02")
+                // doc.id 就是料號名稱 (例如 "P1001-40")
                 const materialName = doc.id; 
                 const li = document.createElement('li');
                 li.innerHTML = `<a href="#${materialName}">${materialName}</a>`;
@@ -99,7 +99,7 @@ function showHomePage() {
         });
 }
 
-/** * 顯示詳細頁 (邏輯不變，但請確認內容)
+/** * 顯示詳細頁
  */
 function showDetailPage(materialLot) {
     homeView.style.display = 'none';
@@ -144,7 +144,7 @@ function showDetailPage(materialLot) {
 
 // --- 4. 表單提交邏輯 ---
 
-/** * (桶別紀錄) 表單提交 (邏輯不變)
+/** * (桶別紀錄) 表單提交
  */
 recordForm.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -177,33 +177,69 @@ recordForm.addEventListener("submit", (e) => {
     });
 });
 
-/** * ★ (新) 新增料號 表單提交
- */
-newMaterialForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    // 建議將料號轉為大寫，避免 "b1001" 和 "B1001" 重複
-    const newMaterialName = newMaterialInput.value.trim().toUpperCase(); 
+// ==========================================================
+// ===== ★★★ 以下是本次修改的重點 ★★★ =====
+// ==========================================================
 
-    if (!newMaterialName) {
+/** * (新) 新增料號 表單提交 (已更新防呆與 G- 邏輯)
+ */
+newMaterialForm.addEventListener("submit", async (e) => { // ★ 1. 宣告為 async 異步函數
+    e.preventDefault();
+    
+    // --- 2. 標準化 (Normalization) 邏輯 ---
+    let rawName = newMaterialInput.value.trim();
+    if (!rawName) {
         alert("請輸入料號！");
         return;
     }
 
-    // 我們使用 .doc(名稱).set() 方式
-    // 這會以「料號名稱」作為文件的ID，可確保料號不重複
-    // set({}) 裡的內容可以是空的，或存一個建立時間
-    materialsCollection.doc(newMaterialName).set({
-        createdAt: serverTimestamp() // 紀錄一下建立時間
-    })
-    .then(() => {
-        console.log("新料號儲存成功:", newMaterialName);
-        newMaterialInput.value = ""; // 清空輸入框
-    })
-    .catch((error) => {
+    // 規則 A: 全部轉大寫
+    let normalizedName = rawName.toUpperCase(); 
+
+    // 規則 B: 如果開頭是 "G-"，則移除 "G-"
+    if (normalizedName.startsWith("G-")) {
+        normalizedName = normalizedName.substring(2); // 取得 "G-" (第0, 1個字元) 後面的所有字元
+    }
+    // (例如: "g-p1001-40" -> "G-P1001-40" -> "P1001-40")
+    // (例如: "p1001-40" -> "P1001-40")
+    // (例如: "b1001-02" -> "B1001-02")
+
+    // --- 3. 防呆：檢查是否存在 ---
+    
+    // 取得提交按鈕並暫時禁用，防止重複提交
+    const submitButton = newMaterialForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.innerText = "檢查中...";
+
+    try {
+        const docRef = materialsCollection.doc(normalizedName); // 取得標準化名稱的文件引用
+        const docSnap = await docRef.get(); // ★ 4. 使用 await 異步取得文件快照
+
+        if (docSnap.exists()) {
+            // ★ 5. 如果文件已存在
+            alert(`料號已存在 (${normalizedName})`);
+            newMaterialInput.value = ""; // 清空輸入框
+        } else {
+            // ★ 6. 如果文件不存在，才建立新文件
+            await docRef.set({
+                createdAt: serverTimestamp() // 紀錄一下建立時間
+            });
+            console.log("新料號儲存成功:", normalizedName);
+            newMaterialInput.value = ""; // 清空輸入框
+        }
+    } catch (error) {
+        // 捕捉可能的錯誤 (例如網路問題)
         console.error("新增料號失敗: ", error);
-        alert("新增料號失敗！");
-    });
+        alert("操作失敗，請檢查網路連線或聯繫管理員。");
+    } finally {
+        // ★ 7. 無論成功或失敗，最後都要恢復按鈕功能
+        submitButton.disabled = false;
+        submitButton.innerText = "儲存新料號";
+    }
 });
+// ==========================================================
+// ===== ★★★ 以上是本次修改的重點 ★★★ =====
+// ==========================================================
 
 
 // --- 5. 啟動路由 ---
