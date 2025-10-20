@@ -3,16 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>生產批號紀錄</title>
+    <title>生產批號紀錄 (登入)</title>
+    
     <style>
         body { font-family: sans-serif; margin: 0; padding: 20px; background-color: #f9f9f9; }
         .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         
+        /* ★ (新) 登入畫面樣式 */
+        #loginView { max-width: 400px; margin: 100px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        
         /* 首頁樣式 */
         #homeView h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .material-list { list-style: none; padding: 0; }
-        .material-list li { margin: 10px 0; }
-        .material-list a { display: block; padding: 15px; background-color: #f0f0f0; border-radius: 5px; text-decoration: none; color: #333; font-weight: bold; }
+        
+        /* =================================== */
+        /* ===== ★ (以下是本次修改的重點) ★ ===== */
+        /* =================================== */
+        
+        /* (新) 料號列表容器 (UL) */
+        .material-list {
+            list-style: none;
+            padding: 0;
+            display: flex;      /* 1. 改為 Flex 佈局 (左右排序) */
+            flex-wrap: wrap;    /* 2. 允許自動換行 (響應式) */
+            gap: 10px;          /* 3. 按鈕之間的間距 (水平和垂直) */
+        }
+        
+        /* (新) 列表項目 (LI) */
+        .material-list li {
+            /* margin: 10px 0; (舊) */
+            flex-grow: 1;         /* 允許項目彈性增長 */
+            flex-basis: 150px;    /* 每個按鈕的基礎寬度為 150px */
+            min-width: 120px;     /* 最小寬度，防止過度壓縮 */
+        }
+        
+        /* (新) 列表連結 (A) - 這就是按鈕本身 */
+        .material-list a {
+            display: block; 
+            /* padding: 15px; (舊) */
+            padding: 10px 12px;   /* 4. 讓按鈕「小一點」 */
+            background-color: #f0f0f0; 
+            border-radius: 5px; 
+            text-decoration: none; 
+            color: #333; 
+            font-weight: bold;
+            text-align: center;   /* 5. 文字置中 */
+        }
+        /* =================================== */
+        /* ===== ★ (以上是本次修改的重點) ★ ===== */
+        /* =================================== */
+
         .material-list a:hover { background-color: #e0e0e0; }
         
         /* 詳細頁樣式 */
@@ -36,60 +75,73 @@
 </head>
 <body>
 
-    <div class="container">
-        
-        <div id="homeView">
-            <h2>新增料號</h2>
-            <form id="newMaterialForm">
-                <label for="newMaterialInput">新料號:</label>
-                <input type="text" id="newMaterialInput" placeholder="例如: B5001-01" required style="margin-top: 5px; margin-bottom: 10px;">
-                <button type="submit">儲存新料號</button>
-            </form>
-
-            <h2 style="border-top: 2px solid #eee; padding-top: 20px;">選擇料號</h2>
-            <ul id="materialList" class="material-list">
-                <li>讀取中...</li>
-            </ul>
-        </div>
-
-        <div id="detailView">
-            <a href="#" class="back-link">← 返回首頁</a>
-            <h2 id="detailTitle"></h2>
-            
-            <form id="recordForm">
-                <label for="operator">操作員:</label>
-                <select id="operator" required>
-                    <option value="">請選擇...</option>
-                    <option value="宏">洪瑞宏</option>
-                    <option value="瑋">林宥瑋</option>
-                    <option value="光">王立光</option>
-                    <option value="育">許正育</option>
-                    <option value="靜">陳美靜</option>
-                </select>
-
-                <label for="barrelNumber">輸入新桶別:</label>
-                <input type="text" id="barrelNumber" placeholder="例如: 005, 006..." required>
-                
-                <button type="submit">儲存紀錄</button>
-            </form>
-
-            <h3>目前已紀錄桶別</h3>
-            <table id="recordTable">
-                <thead>
-                    <tr>
-                        <th>紀錄時間 (台北)</th>
-                        <th>操作員</th>
-                        <th>桶別</th>
-                    </tr>
-                </thead>
-                <tbody id="recordBody">
-                    </tbody>
-            </table>
-        </div>
-
+    <div id="loginView">
+        <form id="loginForm">
+            <h2>生產批號紀錄 登入</h2>
+            <label for="loginIdInput">請輸入工號:</label>
+            <input type="password" id="loginIdInput" required autocomplete="current-password">
+            <button type="submit" id="loginButton">登入</button>
+        </form>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <div id="appView" style="display: none;">
+        <div class="container">
+            
+            <div id="homeView">
+
+                <h2 style="color: #28a745; border-bottom-color: #28a745;">搜尋桶別</h2>
+                <form id="searchForm" style="border-color: #ccc;">
+                    <label for="searchMaterialSelect">1. 選擇料號:</label>
+                    <select id="searchMaterialSelect" required>
+                        <option value="">讀取料號中...</option>
+                    </select>
+                    <label for="searchBarrelInput" style="margin-top: 10px; display: block;">2. 輸入桶別 (例如: 90 或 90(03)):</label>
+                    <input type="text" id="searchBarrelInput" placeholder="輸入 90(03) 將會搜尋 90" required>
+                    <button type="submit" style="background-color: #28a745;">搜尋</button>
+                </form>
+                
+                <div id="searchResults" style="margin-top: -10px; margin-bottom: 20px; padding: 10px; background: #f4f4f4; border-radius: 5px; display: none; border: 1px solid #ddd;">
+                    </div>
+
+                <h2 style="border-top: 2px solid #eee; padding-top: 20px;">新增料號</h2>
+                <form id="newMaterialForm">
+                    <label for="newMaterialInput">新料號:</label>
+                    <input type="text" id="newMaterialInput" placeholder="例如: B5001-01" required style="margin-top: 5px; margin-bottom: 10px;">
+                    <button type="submit">儲存新料號</button>
+                </form>
+
+                <h2 style="border-top: 2px solid #eee; padding-top: 20px;">選擇料號</h2>
+                <ul id="materialList" class="material-list">
+                    <li>讀取中...</li>
+                </ul>
+            </div>
+
+            <div id="detailView">
+                <a href="#" class="back-link">← 返回首頁</a>
+                <h2 id="detailTitle"></h2>
+                
+                <form id="recordForm">
+                    <label for="barrelNumber">輸入新桶別:</label>
+                    <input type="text" id="barrelNumber" placeholder="例如: 005, 006..." required>
+                    <button type="submit">儲存紀錄</button>
+                </form>
+
+                <h3>目前已紀錄桶別</h3>
+                <table id="recordTable">
+                    <thead>
+                        <tr>
+                            <th>紀錄時間 (台北)</th>
+                            <th>操作員</th>
+                            <th>桶別</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordBody">
+                        </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div> <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-check-compat.js"></script>
     
