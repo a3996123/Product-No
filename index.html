@@ -18,10 +18,17 @@
         /* 詳細頁樣式 */
         #detailView { display: none; /* 預設隱藏 */ }
         .back-link { display: inline-block; margin-bottom: 15px; text-decoration: none; color: #007bff; }
+        
+        /* 通用表單樣式 */
         form { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 8px; }
         input, select, button { margin-bottom: 10px; width: 100%; padding: 8px; box-sizing: border-box; }
         button { background-color: #007bff; color: white; border: none; cursor: pointer; }
         button:hover { background-color: #0056b3; }
+        
+        /* 新增料號表單的特定樣式 */
+        #newMaterialForm { border-color: #007bff; }
+
+        /* 桶別表格樣式 */
         table { width: 100%; border-collapse: collapse; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
@@ -32,19 +39,17 @@
     <div class="container">
         
         <div id="homeView">
-            <h2>選擇料號</h2>
-            <ul class="material-list">
-                <li><a href="#B1001-02">B1001-02</a></li>
-                <li><a href="#B3022-01">B3022-01</a></li>
-                <li><a href="#B3022-02">B3022-02</a></li>
-                <li><a href="#B3022-03">B3022-03</a></li>
-                <li><a href="#B1024-02">B1024-02</a></li>
-                <li><a href="#B1012-02">B1012-02</a></li>
-                <li><a href="#B6010-01">B6010-01</a></li>
-                <li><a href="#P1001-40">P1001-40</a></li>
-                <li><a href="#P1002-05">P1002-05</a></li>
-                <li><a href="#P1002-09">P1002-09</a></li>
-                </ul>
+            <h2>新增料號</h2>
+            <form id="newMaterialForm">
+                <label for="newMaterialInput">新料號:</label>
+                <input type="text" id="newMaterialInput" placeholder="例如: B5001-01" required style="margin-top: 5px; margin-bottom: 10px;">
+                <button type="submit">儲存新料號</button>
+            </form>
+
+            <h2 style="border-top: 2px solid #eee; padding-top: 20px;">選擇料號</h2>
+            <ul id="materialList" class="material-list">
+                <li>讀取中...</li>
+            </ul>
         </div>
 
         <div id="detailView">
@@ -55,11 +60,11 @@
                 <label for="operator">操作員:</label>
                 <select id="operator" required>
                     <option value="">請選擇...</option>
-                    <option value="洪瑞宏">宏</option>
-                    <option value="林宥瑋">瑋</option>
-                    <option value="王立光">光</option>
-                    <option value="許正育">育</option>
-                    <option value="陳美靜">靜</option>
+                    <option value="宏">洪瑞宏</option>
+                    <option value="瑋">林宥瑋</option>
+                    <option value="光">王立光</option>
+                    <option value="育">許正育</option>
+                    <option value="靜">陳美靜</option>
                 </select>
 
                 <label for="barrelNumber">輸入新桶別:</label>
