@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>生產批號紀錄 (登入)</title>
+    <title>生產批號紀錄</title>
     
     <style>
         body { 
@@ -14,8 +14,6 @@
             min-height: 100vh;
             box-sizing: border-box;
         }
-
-        /* 玻璃容器 */
         .glass-container {
             background: rgba(255, 255, 255, 0.25); 
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
@@ -25,18 +23,41 @@
             border-radius: 16px;
             padding: 20px;
         }
-
         .container { 
             max-width: 800px; 
             margin: auto; 
         }
         
-        #loginView { 
-            max-width: 400px; 
-            margin: 100px auto; 
+        /* (舊的 #loginView 樣式已移除) */
+
+        /* ★ (新) 登入/歡迎 區域的樣式 */
+        #authSection {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        #loginForm {
+            margin-bottom: 0; /* 移除登入表單的底部間距 */
+        }
+        #welcomeMessage {
+            display: flex; /* 讓 歡迎文字 和 登出按鈕 並排 */
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.1em;
+            color: #333;
+        }
+        #welcomeMessage button {
+            background-color: #dc3545; /* 登出按鈕為紅色 */
+            width: auto; /* 按鈕寬度自動 */
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        #welcomeMessage button:hover {
+            background-color: #c82333;
         }
 
-        /* 文字和分隔線 */
+
+        /* (以下樣式無變更) */
         #homeView h2, #loginView h2 { 
             border-bottom: 1px solid rgba(255, 255, 255, 0.3); 
             padding-bottom: 10px; 
@@ -46,8 +67,6 @@
             color: #333;
             font-weight: 500;
         }
-        
-        /* 料號列表容器 (UL) */
         .material-list {
             list-style: none;
             padding: 0;
@@ -55,17 +74,11 @@
             flex-wrap: wrap;
             gap: 10px;
         }
-        
-        /* 列表項目 (LI) */
         .material-list li {
             flex-grow: 1;
             flex-basis: 150px;
             min-width: 120px;
         }
-        
-        /* =================================== */
-        /* ===== ★ (懸浮感 修改點 1) ★ ===== */
-        /* =================================== */
         .material-list a {
             display: block; 
             padding: 10px 12px;
@@ -76,33 +89,21 @@
             font-weight: 600;
             text-align: center;
             border: 1px solid rgba(255, 255, 255, 0.2);
-            /* ★ (新) 增加初始陰影 */
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            /* ★ (新) 增加 transform 和 box-shadow 的過渡動畫 */
             transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
         }
-        
         .material-list a:hover { 
             background: rgba(255, 255, 255, 0.7);
-            /* ★ (新) 向上浮起 */
             transform: translateY(-3px);
-            /* ★ (新) 陰影加深 */
             box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
         }
-        /* =================================== */
-
-        /* 詳細頁 */
         #detailView { display: none; }
         .back-link { display: inline-block; margin-bottom: 15px; text-decoration: none; color: #0056b3; font-weight: bold; }
-        
-        /* 表單 */
         form { 
             margin-bottom: 20px; 
             padding: 0;
             border: none;
         }
-        
-        /* 輸入框 */
         input, select {
             margin-bottom: 10px; 
             width: 100%; 
@@ -117,10 +118,6 @@
         input::placeholder {
             color: #555;
         }
-
-        /* =================================== */
-        /* ===== ★ (懸浮感 修改點 2) ★ ===== */
-        /* =================================== */
         button { 
             background-color: #007bff; 
             color: white; 
@@ -129,29 +126,20 @@
             padding: 12px;
             font-size: 16px;
             border-radius: 8px;
-            /* ★ (新) 增加初始陰影 */
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            /* ★ (新) 增加 transform 和 box-shadow 的過渡動畫 */
             transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
         }
-        
         button:hover { 
             background-color: #0056b3; 
-            /* ★ (新) 向上浮起 */
             transform: translateY(-3px);
-            /* ★ (新) 陰影加深 */
             box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
         }
-        
-        /* 搜尋按鈕的懸停顏色 (會繼承上面的 transform) */
         #searchForm button[type="submit"] {
             background-color: #28a745;
         }
         #searchForm button[type="submit"]:hover {
             background-color: #218838;
         }
-
-        /* ★ (新) 讓「禁用中」的按鈕不會浮起 */
         button:disabled {
             background-color: #aaa;
             box-shadow: none;
@@ -161,9 +149,6 @@
             box-shadow: none;
             background-color: #aaa;
         }
-        /* =================================== */
-
-        /* 搜尋結果 */
         #searchResults {
             margin-top: -10px;
             margin-bottom: 20px;
@@ -173,8 +158,6 @@
             display: none;
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-
-        /* 桶別表格 */
         table { 
             width: 100%; 
             border-collapse: collapse; 
@@ -195,72 +178,64 @@
 </head>
 <body>
 
-    <div id="loginView" class="glass-container">
-        <form id="loginForm">
-            <h2>生產批號紀錄 登入</h2>
-            <label for="loginIdInput">請輸入工號:</label>
-            <input type="tel" id="loginIdInput" required autocomplete="off">
-            <button type="submit" id="loginButton">登入</button>
-        </form>
-    </div>
+    <div class="container glass-container">
 
-    <div id="appView" style="display: none;">
-        <div class="container glass-container">
+        <div id="authSection">
+            <form id="loginForm">
+                <label for="loginIdInput">請登入以新增資料 (訪客可使用查詢):</label>
+                <input type="tel" id="loginIdInput" placeholder="請輸入工號" required autocomplete="off">
+                <button type="submit" id="loginButton">登入</button>
+            </form>
             
-            <div id="homeView">
-
-                <h2 style="color: #28a745; border-bottom-color: #28a745;">搜尋桶別</h2>
-                <form id="searchForm" style="border-color: #ccc;">
-                    <label for="searchMaterialSelect">1. 選擇料號:</label>
-                    <select id="searchMaterialSelect" required>
-                        <option value="">讀取料號中...</option>
-                    </select>
-                    <label for="searchBarrelInput" style="margin-top: 10px; display: block;">2. 輸入桶別 (例如: 90 或 90(03)):</label>
-                    <input type="text" id="searchBarrelInput" placeholder="輸入 90(03) 將會搜尋 90" required>
-                    <button type="submit" style="background-color: #28a745;">搜尋</button>
-                </form>
-                
-                <div id="searchResults">
-                    </div>
-
-                <h2 style="border-top: 2px solid #eee; padding-top: 20px;">新增料號</h2>
-                <form id="newMaterialForm">
-                    <label for="newMaterialInput">新料號:</label>
-                    <input type="text" id="newMaterialInput" placeholder="例如: B5001-01" required style="margin-top: 5px; margin-bottom: 10px;">
-                    <button type="submit">儲存新料號</button>
-                </form>
-
-                <h2 style="border-top: 2px solid #eee; padding-top: 20px;">選擇料號</h2>
-                <ul id="materialList" class="material-list">
-                    <li>讀取中...</li>
-                </ul>
+            <div id="welcomeMessage" style="display: none;">
+                <span>歡迎, <strong id="userName"></strong>!</span>
+                <button id="logoutButton">登出</button>
             </div>
-
-            <div id="detailView">
-                <a href="#" class="back-link">← 返回首頁</a>
-                <h2 id="detailTitle"></h2>
-                
-                <form id="recordForm">
-                    <label for="barrelNumber">輸入新桶別:</label>
-                    <input type="text" id="barrelNumber" placeholder="例如: 005, 006..." required>
-                    <button type="submit">儲存紀錄</button>
-                </form>
-
-                <h3>目前已紀錄桶別</h3>
-                <table id="recordTable">
-                    <thead>
-                        <tr>
-                            <th>紀錄時間 (台北)</th>
-                            <th>操作員</th>
-                            <th>桶別</th>
-                        </tr>
-                    </thead>
-                    <tbody id="recordBody">
-                        </tbody>
-                </table>
-            </div>
-
         </div>
+        
+        <div id="homeView">
+
+            <h2 style="color: #28a745; border-bottom-color: #28a745;">搜尋桶別</h2>
+            <form id="searchForm" style="border-color: #ccc;">
+                <label for="searchMaterialSelect">1. 選擇料號:</label>
+                <select id="searchMaterialSelect" required><option value="">讀取料號中...</option></select>
+                <label for="searchBarrelInput" style="margin-top: 10px; display: block;">2. 輸入桶別 (例如: 90 或 90(03)):</label>
+                <input type="text" id="searchBarrelInput" placeholder="輸入 90(03) 將會搜尋 90" required>
+                <button type="submit" style="background-color: #28a745;">搜尋</button>
+            </form>
+            
+            <div id="searchResults"></div>
+
+            <h2 style="border-top: 2px solid #eee; padding-top: 20px;">新增料號</h2>
+            <form id="newMaterialForm">
+                <label for="newMaterialInput">新料號:</label>
+                <input type="text" id="newMaterialInput" placeholder="例如: B5001-01" required style="margin-top: 5px; margin-bottom: 10px;">
+                <button type="submit">儲存新料號</button>
+            </form>
+
+            <h2 style="border-top: 2px solid #eee; padding-top: 20px;">選擇料號</h2>
+            <ul id="materialList" class="material-list">
+                <li>讀取中...</li>
+            </ul>
+        </div>
+
+        <div id="detailView">
+            <a href="#" class="back-link">← 返回首頁</a>
+            <h2 id="detailTitle"></h2>
+            
+            <form id="recordForm">
+                <label for="barrelNumber">輸入新桶別:</label>
+                <input type="text" id="barrelNumber" placeholder="例如: 005, 006..." required>
+                <button type="submit">儲存紀錄</button>
+            </form>
+
+            <h3>目前已紀錄桶別</h3>
+            <table id="recordTable">
+                <thead><tr><th>紀錄時間 (台北)</th><th>操作員</th><th>桶別</th></tr></thead>
+                <tbody id="recordBody"></tbody>
+            </table>
+        </div>
+
     </div> <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-check-compat.js"></script>
