@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生產批號紀錄</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 20px; background-color: #f9f9f9; }
+        .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        
+        /* 首頁樣式 */
+        #homeView h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .material-list { list-style: none; padding: 0; }
+        .material-list li { margin: 10px 0; }
+        .material-list a { display: block; padding: 15px; background-color: #f0f0f0; border-radius: 5px; text-decoration: none; color: #333; font-weight: bold; }
+        .material-list a:hover { background-color: #e0e0e0; }
+        
+        /* 詳細頁樣式 */
+        #detailView { display: none; /* 預設隱藏 */ }
+        .back-link { display: inline-block; margin-bottom: 15px; text-decoration: none; color: #007bff; }
+        form { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 8px; }
+        input, select, button { margin-bottom: 10px; width: 100%; padding: 8px; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <div id="homeView">
+            <h2>選擇料號</h2>
+            <ul class="material-list">
+                <li><a href="#B1001-02">B1001-02</a></li>
+                <li><a href="#B3022-01">B3022-01</a></li>
+                <li><a href="#B3022-02">B3022-02</a></li>
+                <li><a href="#B3022-03">B3022-03</a></li>
+                </ul>
+        </div>
+
+        <div id="detailView">
+            <a href="#" class="back-link">← 返回首頁</a>
+            <h2 id="detailTitle"></h2>
+            
+            <form id="recordForm">
+                <label for="operator">操作員:</label>
+                <select id="operator" required>
+                    <option value="">請選擇...</option>
+                    <option value="小王">小王</option>
+                    <option value="小明">小明</option>
+                    <option value="阿會">阿會</option>
+                </select>
+
+                <label for="barrelNumber">輸入新桶別:</label>
+                <input type="text" id="barrelNumber" placeholder="例如: 005, 006..." required>
+                
+                <button type="submit">儲存紀錄</button>
+            </form>
+
+            <h3>目前已紀錄桶別</h3>
+            <table id="recordTable">
+                <thead>
+                    <tr>
+                        <th>紀錄時間 (台北)</th>
+                        <th>操作員</th>
+                        <th>桶別</th>
+                    </tr>
+                </thead>
+                <tbody id="recordBody">
+                    </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    
+    <script src="script.js"></script>
+</body>
+</html>
