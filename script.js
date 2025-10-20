@@ -29,10 +29,8 @@ try {
 } catch (error) {
     console.error("Firebase App Check 啟動失敗:", error);
 }
-// ==========================================================
 
-
-// ----- (以下程式碼與您上一版完全相同，請直接複製貼上即可) -----
+// ----- (以下程式碼直到 "--- 4. 表單提交邏輯 ---" 之前都無變更) -----
 
 const db = firebase.firestore();
 const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
@@ -122,8 +120,7 @@ function showDetailPage(materialLot) {
                         hour: '2-digit', minute: '2-digit' 
                     }) 
                     : '處理中...';
-
-                // 修正：確保表格欄位數量正確 (您有3個 <th>)
+                
                 const rowFixed = `<tr>
                     <td>${date}</td>
                     <td>${data.operator}</td>
@@ -139,11 +136,20 @@ function showDetailPage(materialLot) {
         });
 }
 
+// ==========================================================
+// ===== ★★★ 以下是本次修改的重點 ★★★ =====
 // --- 4. 表單提交邏輯 ---
-recordForm.addEventListener("submit", (e) => {
+
+/** * (桶別紀錄) 表單提交 (★ 已更新：加入重複桶別防呆)
+ */
+recordForm.addEventListener("submit", async (e) => { // ★ 1. 改為 async 異步
     e.preventDefault();
+    
+    // --- 2. 取得資料 ---
     const operator = operatorSelect.value;
     const barrelNumberString = barrelNumberInput.value.trim();
+    
+    // --- 3. 基本驗證 ---
     if (!operator || !barrelNumberString || !currentMaterialLot) {
         alert("資料不完整！");
         return;
@@ -154,24 +160,56 @@ recordForm.addEventListener("submit", (e) => {
         return;
     }
 
-    recordsCollection.add({
-        operator: operator,
-        barrelNumber_display: barrelNumberString,
-        barrelNumber_sort: barrelNumberAsNumber,
-        materialLot: currentMaterialLot,
-        timestamp: serverTimestamp()
-    })
-    .then(() => {
-        console.log("資料儲存成功!");
-        barrelNumberInput.value = ""; 
-        operatorSelect.focus();
-    })
-    .catch((error) => {
+    // --- 4. 鎖定按鈕，防止重複提交 ---
+    const submitButton = recordForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.innerText = "檢查中...";
+
+    try {
+        // --- 5. ★ 新防呆：檢查桶別是否重複 ---
+        //    (這一步會觸發「建立新索引」的提示)
+        const duplicateQuery = recordsCollection
+            .where("materialLot", "==", currentMaterialLot)
+            .where("barrelNumber_sort", "==", barrelNumberAsNumber);
+            
+        const querySnapshot = await duplicateQuery.get();
+
+        if (!querySnapshot.empty) {
+            // ★ 6. 如果 'empty' 是 false，代表有找到資料 (重複了)
+            alert(`錯誤：桶別 "${barrelNumberString}" 已經存在於此料號！`);
+        
+        } else {
+            // ★ 7. 如果是空的 (不重複)，才執行新增
+            await recordsCollection.add({
+                operator: operator,
+                barrelNumber_display: barrelNumberString,
+                barrelNumber_sort: barrelNumberAsNumber,
+                materialLot: currentMaterialLot,
+                timestamp: serverTimestamp()
+            });
+            console.log("資料儲存成功!");
+            barrelNumberInput.value = ""; 
+            operatorSelect.focus();
+        }
+
+    } catch (error) {
+        // ★ 8. 捕捉錯誤 (最可能的是"缺少索引")
         console.error("儲存失敗: ", error);
-        alert("儲存失敗！請檢查是否被 App Check 或 安全規則 阻擋。");
-    });
+        if (error.code === 'failed-precondition') {
+             alert("Firebase 儲存錯誤！請按 F12 打開主控台，點擊錯誤訊息中的『連結』來建立【新的】資料庫索引。");
+        } else {
+             alert("儲存失敗！請檢查是否被 App Check 或 安全規則 阻擋。");
+        }
+    } finally {
+        // ★ 9. 恢復按鈕
+        submitButton.disabled = false;
+        submitButton.innerText = "儲存紀錄";
+    }
 });
 
+
+/** * (新料號) 表單提交 (邏輯不變)
+ */
 newMaterialForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     let rawName = newMaterialInput.value.trim();
