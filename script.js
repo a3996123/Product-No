@@ -36,37 +36,30 @@ const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
 const fieldPath = firebase.firestore.FieldPath.documentId; 
 
 // ★★★ 登入/權限 相關 ★★★
-let currentUser = null; // 儲存當前登入的使用者資訊
-const usersCollection = db.collection("users"); // "users" 資料庫
+let currentUser = null; 
+const usersCollection = db.collection("users"); 
 
 // 三個資料集合
-const recordsCollection = db.collection("records"); // 儲存桶別
-const materialsCollection = db.collection("materials"); // 儲存料號清單
+const recordsCollection = db.collection("records"); 
+const materialsCollection = db.collection("materials"); 
 
 // --- 2. 取得 DOM 元素 ---
-
-// ★ (新) 登入/驗證 區域
+// (此區塊無變更)
 const loginForm = document.getElementById('loginForm');
 const loginIdInput = document.getElementById('loginIdInput');
 const loginButton = document.getElementById('loginButton');
 const welcomeMessage = document.getElementById('welcomeMessage');
 const userName = document.getElementById('userName');
 const logoutButton = document.getElementById('logoutButton');
-
-// 詳細頁
 const detailView = document.getElementById('detailView');
 const detailTitle = document.getElementById('detailTitle');
 const recordForm = document.getElementById('recordForm');
 const tableBody = document.getElementById('recordBody');
 const barrelNumberInput = document.getElementById('barrelNumber');
-
-// 首頁 (料號清單 + 新增)
 const homeView = document.getElementById('homeView');
 const materialList = document.getElementById('materialList');
 const newMaterialForm = document.getElementById('newMaterialForm');
 const newMaterialInput = document.getElementById('newMaterialInput');
-
-// 首頁 (搜尋)
 const searchForm = document.getElementById('searchForm');
 const searchMaterialSelect = document.getElementById('searchMaterialSelect');
 const searchBarrelInput = document.getElementById('searchBarrelInput');
@@ -78,11 +71,8 @@ let materialListListener = null;
 let currentMaterialLot = null;
 
 
-// --- 3. ★ (新) 登入與視圖管理邏輯 ---
-
-/**
- * 檢查瀏覽器暫存中是否已有登入狀態
- */
+// --- 3. 登入與視圖管理邏輯 ---
+// (此區塊無變更)
 function checkLoginState() {
     const userData = sessionStorage.getItem('currentUser');
     if (userData) {
@@ -92,47 +82,34 @@ function checkLoginState() {
         currentUser = null;
         console.log("訪客模式");
     }
-    // 更新頂部的 Auth UI
     updateAuthUI();
 }
 
-/**
- * (新) 更新頂部的登入/歡迎 UI
- */
 function updateAuthUI() {
     if (currentUser) {
-        // 已登入
         loginForm.style.display = 'none';
-        welcomeMessage.style.display = 'flex'; // (改為 flex 才會並排)
+        welcomeMessage.style.display = 'flex'; 
         userName.innerText = currentUser.name;
     } else {
-        // 未登入 (訪客)
         loginForm.style.display = 'block';
         welcomeMessage.style.display = 'none';
     }
 }
 
-/**
- * (新) 登入表單提交邏輯
- */
 loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const id = loginIdInput.value.trim();
     if (!id) return;
-
     loginButton.disabled = true;
     loginButton.innerText = "登入中...";
-
     try {
         const docRef = usersCollection.doc(id);
         const docSnap = await docRef.get();
-
         if (docSnap.exists) {
-            // 登入成功
             currentUser = { id: docSnap.id, ...docSnap.data() };
             sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
             updateAuthUI();
-            router(); // ★ (新) 重新執行 router 來顯示表單
+            router(); 
         } else {
             alert("工號錯誤或不存在！");
             loginIdInput.value = "";
@@ -146,18 +123,16 @@ loginForm.addEventListener("submit", async (e) => {
     }
 });
 
-/**
- * (新) 登出按鈕邏輯
- */
 logoutButton.addEventListener("click", () => {
     currentUser = null;
     sessionStorage.removeItem('currentUser');
     updateAuthUI();
-    router(); // ★ (新) 重新執行 router 來隱藏表單
+    router(); 
 });
 
 
 // --- 4. 頁面導航 (路由) 邏輯 ---
+// (此區塊無變更)
 function router() {
     if (currentListener) { currentListener(); currentListener = null; }
     if (materialListListener) { materialListListener(); materialListListener = null; }
@@ -171,10 +146,6 @@ function router() {
     }
 }
 
-/**
- * 顯示首頁
- * ★★★ (已修改) 根據登入狀態顯示/隱藏 newMaterialForm ★★★
- */
 function showHomePage() {
     homeView.style.display = 'block';
     detailView.style.display = 'none';
@@ -182,14 +153,11 @@ function showHomePage() {
     materialList.innerHTML = '<li>讀取中...</li>'; 
     searchMaterialSelect.innerHTML = '<option value="">讀取料號中...</option>';
     searchResults.style.display = 'none'; 
-
-    // ★ (新) 根據登入狀態，顯示或隱藏「新增料號」表單
     if (currentUser) {
         newMaterialForm.style.display = 'block';
     } else {
         newMaterialForm.style.display = 'none';
     }
-
     materialListListener = materialsCollection
         .orderBy(fieldPath(), "asc")
         .onSnapshot((snapshot) => {
@@ -217,10 +185,6 @@ function showHomePage() {
         });
 }
 
-/**
- * 顯示詳細頁
- * ★★★ (已修改) 根據登入狀態顯示/隱藏 recordForm ★★★
- */
 function showDetailPage(materialLot) {
     homeView.style.display = 'none';
     detailView.style.display = 'block';
@@ -228,14 +192,11 @@ function showDetailPage(materialLot) {
     if(barrelNumberInput) {
         barrelNumberInput.value = "";
     }
-    
-    // ★ (新) 根據登入狀態，顯示或隱藏「新增桶別」表單
     if (currentUser) {
         recordForm.style.display = 'block';
     } else {
         recordForm.style.display = 'none';
     }
-
     currentListener = recordsCollection
         .where("materialLot", "==", materialLot)
         .orderBy("timestamp", "desc")
@@ -272,20 +233,17 @@ function showDetailPage(materialLot) {
 }
 
 // --- 5. 表單提交邏輯 ---
+// ( (桶別紀錄) 和 (新料號) 表單邏輯無變更)
 
-/** * (桶別紀錄) 表單提交
- * (★ 已修改) 增加 !currentUser 檢查 (雖然表單已隱藏，但多一層防護)
- */
+/** * (桶別紀錄) 表單提交 */
 recordForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    
     if (!currentUser) {
         alert("請先登入才能新增資料！");
         return;
     }
     const operatorName = currentUser.name;
     const operatorId = currentUser.id;
-
     const barrelNumberString = barrelNumberInput.value.trim();
     if (!barrelNumberString || !currentMaterialLot) {
         alert("資料不完整！");
@@ -296,17 +254,14 @@ recordForm.addEventListener("submit", async (e) => {
         alert("桶別必須是數字！ (例如: 005, 10)");
         return;
     }
-
     const submitButton = recordForm.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     submitButton.innerText = "檢查中...";
-
     try {
         const duplicateQuery = recordsCollection
             .where("materialLot", "==", currentMaterialLot)
             .where("barrelNumber_sort", "==", barrelNumberAsNumber);
         const querySnapshot = await duplicateQuery.get();
-
         if (!querySnapshot.empty) {
             alert(`錯誤：桶別 "${barrelNumberString}" 已經存在於此料號！`);
         } else {
@@ -334,15 +289,9 @@ recordForm.addEventListener("submit", async (e) => {
     }
 });
 
-
-/** * (新料號) 表單提交
- * (★ 已修改) 移除 !currentUser 檢查 (理由同上)
- */
+/** * (新料號) 表單提交 */
 newMaterialForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    
-    // (已移除 !currentUser 檢查, 因為表單在未登入時是隱藏的)
-
     let rawName = newMaterialInput.value.trim();
     if (!rawName) {
         alert("請輸入料號！");
@@ -352,15 +301,12 @@ newMaterialForm.addEventListener("submit", async (e) => {
     if (normalizedName.startsWith("G-")) {
         normalizedName = normalizedName.substring(2);
     }
-
     const submitButton = newMaterialForm.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     submitButton.innerText = "檢查中...";
-
     try {
         const docRef = materialsCollection.doc(normalizedName);
         const docSnap = await docRef.get(); 
-
         if (docSnap.exists) { 
             alert(`料號已存在 (${normalizedName})`);
             newMaterialInput.value = "";
@@ -381,43 +327,79 @@ newMaterialForm.addEventListener("submit", async (e) => {
     }
 });
 
-/** * (搜尋) 表單提交 (無變更)
- */
+
+// ==========================================================
+// ===== ★★★ (已修改) 搜尋表單邏輯 ★★★ =====
+// ==========================================================
 searchForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+    
     const materialLot = searchMaterialSelect.value;
     const rawBarrelText = searchBarrelInput.value.trim();
-    if (!materialLot || !rawBarrelText) {
-        alert("請選擇料號並輸入桶別！");
-        return;
-    }
-    const searchText = rawBarrelText.split('(')[0].trim();
-    const searchNumber = parseInt(searchText, 10);
-    if (isNaN(searchNumber)) {
-        alert("輸入的桶別無效。請確保括號前的部分是數字。");
-        searchResults.style.display = 'none';
+    
+    // 基本驗證 (料號為必填)
+    if (!materialLot) {
+        alert("請選擇料號！");
         return;
     }
 
+    // --- 1. 鎖定按鈕並顯示結果區 ---
     const submitButton = searchForm.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     submitButton.innerText = "搜尋中...";
     searchResults.style.display = 'block';
     searchResults.innerHTML = '<p>正在搜尋中...</p>';
-    
+
+    let query; // 用來儲存查詢
+    let searchTitle; // 用來儲存結果標題
+
     try {
-        const query = recordsCollection
-            .where("materialLot", "==", materialLot)
-            .where("barrelNumber_sort", "==", searchNumber);
+        // --- 2. 檢查桶別輸入是否為空 ---
+        if (!rawBarrelText) {
+            // --- 2A. (新) 如果為空：搜尋最新的 10 筆 ---
+            query = recordsCollection
+                .where("materialLot", "==", materialLot)
+                .orderBy("timestamp", "desc") // 依時間排序
+                .orderBy("barrelNumber_sort", "desc") // 輔助排序
+                .limit(10); // ★★★ (新) 只取 10 筆 ★★★
+            
+            searchTitle = `在 ${materialLot} 中【最新的 10 筆】桶別紀錄：`;
+
+        } else {
+            // --- 2B. (舊) 如果不為空：搜尋特定桶別 ---
+            const searchText = rawBarrelText.split('(')[0].trim();
+            const searchNumber = parseInt(searchText, 10);
+
+            if (isNaN(searchNumber)) {
+                // 使用 throw new Error 會被下面的 catch 捕捉
+                throw new Error(`輸入的桶別無效 ("${searchText}")。`);
+            }
+            
+            query = recordsCollection
+                .where("materialLot", "==", materialLot)
+                .where("barrelNumber_sort", "==", searchNumber);
+            
+            searchTitle = `在 ${materialLot} 中關於桶別 "${searchText}" (數字 ${searchNumber}) 的紀錄：`;
+        }
+
+        // --- 3. 執行查詢 ---
         const querySnapshot = await query.get();
 
+        // --- 4. 顯示結果 ---
         if (querySnapshot.empty) {
+            // 根據是「查全部」還是「查特定」來顯示不同訊息
+            let emptyMessage = !rawBarrelText 
+                ? `在料號 <strong>${materialLot}</strong> 中，找不到任何桶別紀錄。`
+                : `在料號 <strong>${materialLot}</strong> 中，找不到桶別 <strong>${rawBarrelText.split('(')[0].trim()}</strong>。`;
+                
             searchResults.innerHTML = `<p style="color: red; font-weight: bold;">找不到！</p>
-                                       <p>在料號 <strong>${materialLot}</strong> 中，找不到桶別 <strong>${searchText}</strong> (對應數字 ${searchNumber})。</p>`;
+                                       <p>${emptyMessage}</p>`;
         } else {
+            // 找到了，開始組合 HTML
             let html = `<p style="color: green; font-weight: bold;">找到了！</p>
-                        <h4>在 ${materialLot} 中關於桶別 "${searchText}" (數字 ${searchNumber}) 的紀錄：</h4>
+                        <h4>${searchTitle}</h4>
                         <ul style="padding-left: 20px;">`;
+                        
             querySnapshot.forEach(doc => {
                 const data = doc.data();
                 const date = data.timestamp 
@@ -441,13 +423,15 @@ searchForm.addEventListener("submit", async (e) => {
             html += `</ul>`;
             searchResults.innerHTML = html;
         }
+        
     } catch (error) {
         console.error("Search failed: ", error);
-        searchResults.innerHTML = '<p style="color: red;">搜尋失敗！請檢查 F12 主控台。 (可能是索引問題)</p>';
+        searchResults.innerHTML = `<p style="color: red;">搜尋失敗！${error.message}</p>`;
         if (error.code === 'failed-precondition') {
             alert("Firebase 搜尋錯誤！這可能是一個索引問題，請按 F12 打開主控台，點擊錯誤訊息中的連結來建立索引。");
         }
     } finally {
+        // --- 5. 恢復按鈕 ---
         submitButton.disabled = false;
         submitButton.innerText = "搜尋";
     }
@@ -455,11 +439,9 @@ searchForm.addEventListener("submit", async (e) => {
 
 
 // --- 6. 啟動路由 ---
-// ★★★ (新) 程式啟動點 ★★★
-// 網頁載入時，同時檢查登入狀態並啟動路由
+// (此區塊無變更)
 window.addEventListener('load', () => {
     checkLoginState();
     router();
 });
-// 當 hash 改變時 (例如點擊料號)，才執行 router
 window.addEventListener('hashchange', router);

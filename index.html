@@ -27,37 +27,30 @@
             max-width: 800px; 
             margin: auto; 
         }
-        
-        /* (舊的 #loginView 樣式已移除) */
-
-        /* ★ (新) 登入/歡迎 區域的樣式 */
         #authSection {
             margin-bottom: 20px;
             padding: 15px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.3);
         }
         #loginForm {
-            margin-bottom: 0; /* 移除登入表單的底部間距 */
+            margin-bottom: 0;
         }
         #welcomeMessage {
-            display: flex; /* 讓 歡迎文字 和 登出按鈕 並排 */
+            display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 1.1em;
             color: #333;
         }
         #welcomeMessage button {
-            background-color: #dc3545; /* 登出按鈕為紅色 */
-            width: auto; /* 按鈕寬度自動 */
+            background-color: #dc3545;
+            width: auto;
             padding: 8px 15px;
             font-size: 14px;
         }
         #welcomeMessage button:hover {
             background-color: #c82333;
         }
-
-
-        /* (以下樣式無變更) */
         #homeView h2, #loginView h2 { 
             border-bottom: 1px solid rgba(255, 255, 255, 0.3); 
             padding-bottom: 10px; 
@@ -186,7 +179,6 @@
                 <input type="tel" id="loginIdInput" placeholder="請輸入工號" required autocomplete="off">
                 <button type="submit" id="loginButton">登入</button>
             </form>
-            
             <div id="welcomeMessage" style="display: none;">
                 <span>歡迎, <strong id="userName"></strong>!</span>
                 <button id="logoutButton">登出</button>
@@ -198,9 +190,13 @@
             <h2 style="color: #28a745; border-bottom-color: #28a745;">搜尋桶別</h2>
             <form id="searchForm" style="border-color: #ccc;">
                 <label for="searchMaterialSelect">1. 選擇料號:</label>
-                <select id="searchMaterialSelect" required><option value="">讀取料號中...</option></select>
-                <label for="searchBarrelInput" style="margin-top: 10px; display: block;">2. 輸入桶別 (例如: 90 或 90(03)):</label>
-                <input type="text" id="searchBarrelInput" placeholder="輸入 90(03) 將會搜尋 90" required>
+                <select id="searchMaterialSelect" required>
+                    <option value="">讀取料號中...</option>
+                </select>
+                
+                <label for="searchBarrelInput" style="margin-top: 10px; display: block;">2. 輸入桶別 (可選):</label>
+                <input type="text" id="searchBarrelInput" placeholder="輸入桶別 (可選，留空則查詢全部)">
+                
                 <button type="submit" style="background-color: #28a745;">搜尋</button>
             </form>
             
