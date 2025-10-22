@@ -28,19 +28,19 @@ try {
 
 // --- 1-C. 取得 Firebase 服務 ---
 const db = firebase.firestore();
-const auth = firebase.auth(); 
+const auth = firebase.auth();
 const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
-const fieldPath = firebase.firestore.FieldPath.documentId; 
+const fieldPath = firebase.firestore.FieldPath.documentId;
 
 // --- 1-D. 資料庫集合 ---
-const recordsCollection = db.collection("records"); 
-const materialsCollection = db.collection("materials"); 
-const employeesCollection = db.collection("employees"); 
+const recordsCollection = db.collection("records");
+const materialsCollection = db.collection("materials");
+const employeesCollection = db.collection("employees");
 
 // --- 1-E. 全局變數 ---
-let currentUserPermissions = null; 
-let currentAuthUser = null; 
-let currentListener = null; 
+let currentUserPermissions = null;
+let currentAuthUser = null;
+let currentListener = null;
 let materialListListener = null;
 let currentMaterialLot = null;
 
@@ -64,35 +64,14 @@ const searchBarrelInput = document.getElementById('searchBarrelInput');
 const searchResults = document.getElementById('searchResults');
 
 // --- 3. 登入/登出/權限 邏輯 ---
-
-/**
- * 處理 Google 登入 (★ 已修改為 Popup)
- */
+// (此區塊無變更)
 function signIn() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    // ★★★ 使用 signInWithPopup ★★★
     auth.signInWithPopup(provider)
-        .then((result) => {
-            // 登入成功，onAuthStateChanged 會處理後續
-            console.log("Popup 登入成功", result.user);
-        })
-        .catch((error) => {
-            // 處理錯誤 (例如彈窗被阻擋)
-            console.error("Popup 登入失敗:", error);
-            alert("Google 登入失敗: " + error.message);
-        });
+        .then((result) => { console.log("Popup 登入成功", result.user); })
+        .catch((error) => { console.error("Popup 登入失敗:", error); alert("Google 登入失敗: " + error.message); });
 }
-
-/**
- * 處理登出
- */
-function signOut() {
-    auth.signOut();
-}
-
-/**
- * 監聽登入狀態的改變
- */
+function signOut() { auth.signOut(); }
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         currentAuthUser = user;
@@ -105,12 +84,7 @@ auth.onAuthStateChanged(async (user) => {
                 welcomeMessage.classList.remove('is-hidden');
                 userName.innerText = currentUserPermissions.name;
                 updateUIForPermissions();
-                // ★ 首次登入或刷新頁面時，強制 router 執行一次
-                if (!currentMaterialLot && window.location.hash === "") {
-                    router(); 
-                } else {
-                    // 如果已有 hash (例如從登入頁跳轉回來), router 會由 hashchange 觸發
-                }
+                if (!currentMaterialLot && window.location.hash === "") { router(); }
             } else {
                 alert("登入失敗：您的 Google 帳號 " + user.email + " 不在允許的員工名單中。");
                 signOut();
@@ -135,10 +109,6 @@ auth.onAuthStateChanged(async (user) => {
         detailView.style.display = 'none';
     }
 });
-
-/**
- * 根據權限顯示/隱藏 UI 元素
- */
 function updateUIForPermissions() {
     const canAdd = currentUserPermissions?.can_add === true;
     const canDelete = currentUserPermissions?.can_delete === true;
@@ -159,7 +129,7 @@ function router() {
     }
     if (currentListener) { currentListener(); currentListener = null; }
     if (materialListListener) { materialListListener(); materialListListener = null; }
-    const hash = window.location.hash.substring(1); 
+    const hash = window.location.hash.substring(1);
     if (hash) {
         currentMaterialLot = hash;
         showDetailPage(currentMaterialLot);
@@ -168,18 +138,17 @@ function router() {
         showHomePage();
     }
 }
-
 function showHomePage() {
     homeView.style.display = 'block';
     detailView.style.display = 'none';
     tableBody.innerHTML = "";
-    materialList.innerHTML = '<li>讀取中...</li>'; 
+    materialList.innerHTML = '<li>讀取中...</li>';
     searchMaterialSelect.innerHTML = '<option value="">讀取料號中...</option>';
-    searchResults.style.display = 'none'; 
+    searchResults.style.display = 'none';
     materialListListener = materialsCollection
         .orderBy(fieldPath(), "asc")
         .onSnapshot((snapshot) => {
-            materialList.innerHTML = ""; 
+            materialList.innerHTML = "";
             searchMaterialSelect.innerHTML = '<option value="">-- 請選擇料號 --</option>';
             if (snapshot.empty) {
                 materialList.innerHTML = '<li>尚無資料，請由上方表單新增</li>';
@@ -187,7 +156,7 @@ function showHomePage() {
                 return;
             }
             snapshot.forEach((doc) => {
-                const materialName = doc.id; 
+                const materialName = doc.id;
                 const li = document.createElement('li');
                 li.innerHTML = `<a href="#${materialName}">${materialName}</a>`;
                 materialList.appendChild(li);
@@ -201,10 +170,8 @@ function showHomePage() {
             materialList.innerHTML = '<li>讀取失敗</li>';
             searchMaterialSelect.innerHTML = '<option value="">讀取失敗</option>';
         });
-    // ★ 確保每次回首頁都更新按鈕狀態
-    updateUIForPermissions(); 
+    updateUIForPermissions();
 }
-
 function showDetailPage(materialLot) {
     homeView.style.display = 'none';
     detailView.style.display = 'block';
@@ -216,7 +183,7 @@ function showDetailPage(materialLot) {
         .orderBy("timestamp", "desc")
         .orderBy("barrelNumber_sort", "desc")
         .onSnapshot((snapshot) => {
-            tableBody.innerHTML = ""; 
+            tableBody.innerHTML = "";
             if (snapshot.empty) {
                 tableBody.innerHTML = '<tr><td colspan="4">目前沒有紀錄</td></tr>';
                 return;
@@ -235,8 +202,7 @@ function showDetailPage(materialLot) {
                 signOut();
             }
         });
-    // ★ 確保每次進詳細頁都更新按鈕狀態
-    updateUIForPermissions(); 
+    updateUIForPermissions();
 }
 
 // --- 5. 刪除桶別 邏輯 ---
@@ -263,7 +229,7 @@ async function handleDeleteClick(docId) {
 }
 
 // --- 6. 表單提交邏輯 ---
-// (此區塊無變更)
+// ( (桶別紀錄) 和 (新料號) 表單邏輯無變更)
 recordForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!currentUserPermissions?.can_add) {
@@ -290,7 +256,7 @@ recordForm.addEventListener("submit", async (e) => {
         } else {
             await recordsCollection.add({ operator: operatorName, operatorId: operatorId, barrelNumber_display: barrelNumberString, barrelNumber_sort: barrelNumberAsNumber, materialLot: currentMaterialLot, timestamp: serverTimestamp() });
             console.log("資料儲存成功!");
-            barrelNumberInput.value = ""; 
+            barrelNumberInput.value = "";
         }
     } catch (error) {
         console.error("儲存失敗: ", error);
@@ -309,7 +275,7 @@ newMaterialForm.addEventListener("submit", async (e) => {
     if (!rawName) {
         alert("請輸入料號！"); return;
     }
-    let normalizedName = rawName.toUpperCase(); 
+    let normalizedName = rawName.toUpperCase();
     if (normalizedName.startsWith("G-")) {
         normalizedName = normalizedName.substring(2);
     }
@@ -318,8 +284,8 @@ newMaterialForm.addEventListener("submit", async (e) => {
     submitButton.innerText = "檢查中...";
     try {
         const docRef = materialsCollection.doc(normalizedName);
-        const docSnap = await docRef.get(); 
-        if (docSnap.exists) { 
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
             alert(`料號已存在 (${normalizedName})`);
             newMaterialInput.value = "";
         } else {
@@ -335,47 +301,86 @@ newMaterialForm.addEventListener("submit", async (e) => {
         submitButton.innerText = "儲存新料號";
     }
 });
+
+// ==========================================================
+// ===== ★★★ (已修改) 搜尋表單邏輯 ★★★ =====
+// ==========================================================
 searchForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!currentUserPermissions) {
         alert("請先登入。"); return;
     }
+
     const materialLot = searchMaterialSelect.value;
     const rawBarrelText = searchBarrelInput.value.trim();
+
     if (!materialLot) {
         alert("請選擇料號！"); return;
     }
+
     const submitButton = searchForm.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     submitButton.innerText = "搜尋中...";
     searchResults.style.display = 'block';
     searchResults.innerHTML = '<p>正在搜尋中...</p>';
-    let query; 
-    let searchTitle; 
+
+    let query;
+    let searchTitle;
+    let isSearchingAll = false; // ★ (新) 標記是否在查全部
+
     try {
         if (!rawBarrelText) {
-            query = recordsCollection.where("materialLot", "==", materialLot).orderBy("timestamp", "desc").orderBy("barrelNumber_sort", "desc").limit(10);
-            searchTitle = `在 ${materialLot} 中【最新的 10 筆】桶別紀錄：`;
+            // --- (新邏輯) 桶別為空：搜尋桶別最大的 10 筆 ---
+            isSearchingAll = true;
+            query = recordsCollection
+                .where("materialLot", "==", materialLot)
+                .orderBy("barrelNumber_sort", "desc") // ★ 改為桶別排序
+                .limit(10);
+            searchTitle = `在 ${materialLot} 中【桶別最大的 10 筆】紀錄：`; // ★ 更新標題
+
         } else {
+            // --- (舊邏輯) 桶別不為空：搜尋特定桶別 ---
+            isSearchingAll = false;
             const searchText = rawBarrelText.split('(')[0].trim();
             const searchNumber = parseInt(searchText, 10);
             if (isNaN(searchNumber)) {
                 throw new Error(`輸入的桶別無效 ("${searchText}")。`);
             }
-            query = recordsCollection.where("materialLot", "==", materialLot).where("barrelNumber_sort", "==", searchNumber);
+            query = recordsCollection
+                .where("materialLot", "==", materialLot)
+                .where("barrelNumber_sort", "==", searchNumber);
             searchTitle = `在 ${materialLot} 中關於桶別 "${searchText}" (數字 ${searchNumber}) 的紀錄：`;
         }
+
         const querySnapshot = await query.get();
+
         if (querySnapshot.empty) {
-            let emptyMessage = !rawBarrelText ? `在料號 <strong>${materialLot}</strong> 中，找不到任何桶別紀錄。` : `在料號 <strong>${materialLot}</strong> 中，找不到桶別 <strong>${rawBarrelText.split('(')[0].trim()}</strong>。`;
+            let emptyMessage = !rawBarrelText
+                ? `在料號 <strong>${materialLot}</strong> 中，找不到任何桶別紀錄。`
+                : `在料號 <strong>${materialLot}</strong> 中，找不到桶別 <strong>${rawBarrelText.split('(')[0].trim()}</strong>。`;
             searchResults.innerHTML = `<p style="color: red; font-weight: bold;">找不到！</p><p>${emptyMessage}</p>`;
         } else {
             let html = `<p style="color: green; font-weight: bold;">找到了！</p><h4>${searchTitle}</h4><ul style="padding-left: 20px;">`;
             querySnapshot.forEach(doc => {
                 const data = doc.data();
                 const date = data.timestamp ? data.timestamp.toDate().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'N/A';
-                const operatorDisplay = data.operatorId ? `${data.operator} (${data.operatorId})` : data.operator;
-                html += `<li style="margin-bottom: 10px;"><strong>操作員:</strong> ${operatorDisplay}<br><strong>原始輸入:</strong> ${data.barrelNumber_display}<br><strong>紀錄時間:</strong> ${date}</li>`;
+                
+                // ★ (新) 根據 isSearchingAll 決定顯示內容
+                if (isSearchingAll) {
+                    // 只顯示時間和桶別
+                    html += `<li style="margin-bottom: 10px;">
+                        <strong>原始輸入:</strong> ${data.barrelNumber_display}<br>
+                        <strong>紀錄時間:</strong> ${date}
+                    </li>`;
+                } else {
+                    // 顯示完整資訊
+                    const operatorDisplay = data.operatorId ? `${data.operator} (${data.operatorId})` : data.operator;
+                    html += `<li style="margin-bottom: 10px;">
+                        <strong>操作員:</strong> ${operatorDisplay}<br>
+                        <strong>原始輸入:</strong> ${data.barrelNumber_display}<br>
+                        <strong>紀錄時間:</strong> ${date}
+                    </li>`;
+                }
             });
             html += `</ul>`;
             searchResults.innerHTML = html;
@@ -383,11 +388,16 @@ searchForm.addEventListener("submit", async (e) => {
     } catch (error) {
         console.error("Search failed: ", error);
         searchResults.innerHTML = `<p style="color: red;">搜尋失敗！${error.message}</p>`;
+        // (保持錯誤提示)
+        if (error.code === 'failed-precondition') {
+             alert("Firebase 搜尋錯誤！這可能是一個索引問題，請按 F12 打開主控台，點擊錯誤訊息中的連結來建立索引。");
+        }
     } finally {
         submitButton.disabled = false;
         submitButton.innerText = "搜尋";
     }
 });
+
 
 // --- 7. 啟動路由與事件監聽 ---
 // (此區塊無變更)
@@ -400,4 +410,3 @@ document.addEventListener('click', function(event) {
     }
 });
 window.addEventListener('hashchange', router);
-// (onAuthStateChanged 會在頁面載入時自動觸發第一次的 router)
