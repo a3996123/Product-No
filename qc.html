@@ -7,7 +7,7 @@
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); min-height: 100vh; box-sizing: border-box; }
         .glass-container { background: rgba(255, 255, 255, 0.25); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 16px; padding: 20px; }
-        .container { max-width: 1200px; margin: auto; }
+        .container { max-width: 1200px; margin: auto; } /* QC 頁面加寬 */
         #authSection { margin-bottom: 20px; padding: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.3); text-align: center; }
         #welcomeMessage { display: flex; justify-content: space-between; align-items: center; font-size: 1.1em; color: #333; }
         #welcomeMessage button { background-color: #dc3545; width: auto; padding: 8px 15px; font-size: 14px; }
@@ -31,40 +31,28 @@
         .upload-area label { background-color: #17a2b8; border-radius: 8px; padding: 12px 20px; color: white; cursor: pointer; transition: background 0.2s; }
         .upload-area label:hover { background-color: #138496; }
         .upload-area button { width: auto; }
-        #fileName { color: #333; }
+        #fileName { color: #333; flex-grow: 1; text-align: left; } /* 讓檔名有更多空間 */
 
         /* ★★★ 排序樣式 ★★★ */
-        .sortable-header {
-            cursor: pointer;
-            user-select: none; /* 防止選中文本 */
-        }
-        .sortable-header:hover {
-            background-color: rgba(255, 255, 255, 0.4);
-        }
-        .sort-indicator {
-            display: inline-block;
-            width: 0;
-            height: 0;
-            margin-left: 5px;
-            vertical-align: middle;
-            border-left: 4px solid transparent;
-            border-right: 4px solid transparent;
-            opacity: 0.3;
-        }
-        .sortable-header.sort-asc .sort-indicator {
-            border-bottom: 5px solid #333; /* 向上箭頭 */
-            opacity: 1;
-        }
-        .sortable-header.sort-desc .sort-indicator {
-            border-top: 5px solid #333; /* 向下箭頭 */
-            opacity: 1;
-        }
+        .sortable-header { cursor: pointer; user-select: none; }
+        .sortable-header:hover { background-color: rgba(255, 255, 255, 0.4); }
+        .sort-indicator { display: inline-block; width: 0; height: 0; margin-left: 5px; vertical-align: middle; border-left: 4px solid transparent; border-right: 4px solid transparent; opacity: 0.3; }
+        .sortable-header.sort-asc .sort-indicator { border-bottom: 5px solid #333; opacity: 1; }
+        .sortable-header.sort-desc .sort-indicator { border-top: 5px solid #333; opacity: 1; }
         /* ★★★ END 排序樣式 ★★★ */
 
         /* QC 表格專用 */
         #qcTable input[type="checkbox"] { width: auto; cursor: pointer;}
         #qcTable td.status-ok { background-color: rgba(40, 167, 69, 0.2); } /* OK 顯示綠色 */
 
+        /* ★★★ QC 完成狀態區塊樣式 ★★★ */
+        #qcStatusSummary { margin-top: 30px; margin-bottom: 30px; padding: 15px; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; }
+        #qcStatusSummary h2 { margin-top: 0; font-size: 1.2em; color: #1a5f7a; border-bottom-color: rgba(26, 95, 122, 0.3); }
+        #statusList { list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto; font-size: 0.9em; color: #333; }
+        #statusList li { padding: 5px 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.2); }
+        #statusList li:last-child { border-bottom: none; }
+        #statusList strong { color: #0056b3; }
+        /* ★★★ END QC 完成狀態樣式 ★★★ */
     </style>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -96,6 +84,13 @@
                 <button id="processButton" disabled>2. 上傳並儲存資料</button>
             </div>
 
+            <div id="qcStatusSummary">
+                <h2>QC 完成狀態 (最新桶號)</h2>
+                <ul id="statusList">
+                    <li>載入中...</li>
+                </ul>
+            </div>
+
             <h2>QC 確認清單 (點擊表頭排序)</h2>
             <div style="overflow-x: auto;">
                 <table id="qcTable">
@@ -120,11 +115,12 @@
         </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-check-compat.js"></script>
+    <script type="module"> // ★ 直接在 HTML 中 import，確保 JS 能訪問
+        // --- 1. 初始化 Firebase (Modular SDK) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        // ... (省略 SDK import，JS 檔案會處理) ...
 
-    <script type="module" src="qc_script.js"></script>
-</body>
+        // ★ 確認 qc_script.js 作為 module 載入
+    </script>
+    <script type="module" src="qc_script.js"></script> </body>
 </html>

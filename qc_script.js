@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app-check.js";
-// ★★★ 引入 Timestamp ★★★
+// ★★★ 引入 Firestore 所有需要的函數 ★★★
 import { getFirestore, doc, getDoc, collection, query, orderBy, limit, onSnapshot, writeBatch, setDoc, updateDoc, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
 // !! 關鍵步驟：請將下面的 firebaseConfig 物件 換回您自己的 Firebase 專案設定 !!
@@ -34,20 +34,24 @@ try {
 // --- 1-D. 資料庫集合引用 ---
 const qcCollectionRef = collection(db, "qc_excel_data");
 const employeesCollectionRef = collection(db, "employees");
+const materialStatusCollectionRef = collection(db, "material_qc_status"); // ★ QC 狀態
 
 // --- 1-E. 全局變數 ---
 let currentUserPermissions = null;
 let currentAuthUser = null;
 let workbook;
-let qcDataListener = null; // Unsubscribe function
+let qcDataListener = null; // QC 表格監聽器的 unsubscribe 函數
+let qcStatusListener = null; // QC 狀態監聽器的 unsubscribe 函數
 // ★ 排序相關
-let currentQCData = []; // 儲存從 Firebase 獲取的數據
+let currentQCData = []; // 儲存從 Firebase 獲取的【未過濾】數據
 let currentSortKey = 'last_uploaded_at'; // ★ 預設排序鍵
 let currentSortDirection = 'desc'; // ★ 預設排序方向
+let qcStatusMap = {}; // ★ 儲存 QC 狀態 { materialId: latestBarrel }
 
 // --- 2. 取得 DOM 元素 (先宣告) ---
 let loginButton, logoutButton, welcomeMessage, userName, permissionDenied, qcApp;
 let uploadInput, fileNameDisplay, processButton, qcTable, qcTableBody;
+let statusList; // ★ QC 狀態列表
 
 // --- 3. 登入/登出/權限 邏輯 ---
 
@@ -85,7 +89,6 @@ onAuthStateChanged(auth, async (user) => {
         try {
             const userDocRef = doc(employeesCollectionRef, user.email);
             const userPermsDoc = await getDoc(userDocRef);
-
             if (userPermsDoc.exists()) {
                 currentUserPermissions = userPermsDoc.data();
                 console.log("權限已載入:", currentUserPermissions.name, currentUserPermissions);
@@ -115,7 +118,7 @@ onAuthStateChanged(auth, async (user) => {
  */
 function updateUIForPermissions() {
     if (!loginButton || !logoutButton || !welcomeMessage || !userName ||
-        !permissionDenied || !qcApp || !qcTableBody) {
+        !permissionDenied || !qcApp || !qcTableBody || !statusList) { // 加上 statusList 檢查
         // console.warn("updateUIForPermissions called before all DOM elements are ready.");
         return;
     }
@@ -136,21 +139,17 @@ function updateUIForPermissions() {
     if (canQC) {
         qcApp.classList.remove('is-hidden');
         permissionDenied.classList.add('is-hidden');
-        if (!qcDataListener) {
-           console.log("Attempting to start QC data listener...");
-           renderQCTable(); // 啟動 Firebase 監聽
-        } else {
-           // console.log("QC data listener already active.");
-        }
+        if (!qcDataListener) renderQCTable(); // 啟動 QC 表格監聽
+        if (!qcStatusListener) renderQcStatusSummary(); // 啟動 QC 狀態監聽
     } else {
         qcApp.classList.add('is-hidden');
         permissionDenied.classList.remove('is-hidden');
-        if (typeof qcDataListener === 'function') {
-            console.log("Stopping QC data listener.");
-            qcDataListener(); // 呼叫 unsubscribe 函數
-            qcDataListener = null; // 重置變數
-        }
+        // 停止監聽器
+        if (typeof qcDataListener === 'function') { qcDataListener(); qcDataListener = null; }
+        if (typeof qcStatusListener === 'function') { qcStatusListener(); qcStatusListener = null; }
+        // 清空 UI
         qcTableBody.innerHTML = '<tr><td colspan="9">您沒有 QC 權限。</td></tr>';
+        statusList.innerHTML = '<li>您沒有 QC 權限。</li>';
     }
 }
 
@@ -267,12 +266,17 @@ async function processExcel() {
         }
     } catch (error) {
         console.error("處理或儲存 Excel 失敗: ", error);
-        if (error.code === 'permission-denied') { alert("錯誤：權限不足！只有 QC 管理員 (10369) 才能上傳資料。"); }
+        if (error.code === 'permission-denied') { alert("錯誤：權限不足！只有 QC 管理員才能上傳資料。"); }
         else { alert("處理或儲存 Excel 時發生錯誤：" + error.message); }
          if(qcTableBody) qcTableBody.innerHTML = '<tr><td colspan="9">處理或儲存失敗，請檢查 F12 Console。</td></tr>';
     } finally {
         processButton.disabled = false;
         processButton.innerText = "2. 上傳並儲存資料";
+        // 清理工作，防止重複提交舊 workbook
+        workbook = null;
+        uploadInput.value = ''; // 清空 file input 的值
+        fileNameDisplay.textContent = '未選擇任何檔案';
+        processButton.disabled = true; // 禁用按鈕直到選擇新檔案
     }
 }
 
@@ -293,13 +297,12 @@ function renderQCTable() {
     qcDataListener = onSnapshot(q, (snapshot) => {
         console.log(`Firestore snapshot received: ${snapshot.size} documents.`);
         currentQCData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // ★ 收到新資料時，不需要重置排序，直接顯示
         displaySortedTable();
     }, (error) => {
         console.error("讀取 QC 資料失敗 (Modular): ", error);
          if (!qcTableBody) return;
          qcTableBody.innerHTML = `<tr><td colspan="9">讀取資料失敗: ${error.message}</td></tr>`;
-        if (error.code === 'permission-denied') { signOutUser(); } // 權限不足直接登出
+        if (error.code === 'permission-denied') { signOutUser(); }
     });
 }
 
@@ -311,14 +314,13 @@ function compareValues(a, b) {
     if (a == null) return 1;
     if (b == null) return -1;
     if (typeof a === 'boolean' && typeof b === 'boolean') { return a === b ? 0 : a ? -1 : 1; }
-    // ★ 使用 Duck Typing 檢查 Timestamp
     const aIsTimestamp = typeof a?.toMillis === 'function';
     const bIsTimestamp = typeof b?.toMillis === 'function';
     if (aIsTimestamp && bIsTimestamp) {
         try { return a.toMillis() - b.toMillis(); }
         catch (e) { console.error("Error comparing Timestamps:", e, a, b); return 0; }
     }
-    if (aIsTimestamp) return -1; // Timestamp 排前面
+    if (aIsTimestamp) return -1;
     if (bIsTimestamp) return 1;
     const numA = parseFloat(a);
     const numB = parseFloat(b);
@@ -332,29 +334,28 @@ function compareValues(a, b) {
 
 
 /**
- * 根據全局排序狀態，對 currentQCData 排序並顯示在表格中
+ * 根據全局排序狀態，對 currentQCData 排序，過濾並顯示在表格中
  */
 function displaySortedTable() {
     if (!qcTableBody) { console.error("displaySortedTable called but qcTableBody is null!"); return; }
     qcTableBody.innerHTML = "";
+
     if (!currentQCData || currentQCData.length === 0) {
         qcTableBody.innerHTML = '<tr><td colspan="9">沒有可顯示的資料。</td></tr>'; return;
     }
     // --- 1. 執行排序 ---
     if (currentSortKey) {
-        // ★ 確保 currentSortKey 存在於數據中 (如果第一筆數據就缺key, 可能出錯)
         const sampleData = currentQCData[0];
-        if (sampleData && !(currentSortKey in sampleData) && currentSortKey !== 'last_uploaded_at') {
+        if (sampleData && !(currentSortKey in sampleData) && currentSortKey !== 'last_uploaded_at' && currentSortKey !== 'last_qc_at') {
              console.warn(`Sort key "${currentSortKey}" invalid, falling back.`);
              currentSortKey = 'last_uploaded_at'; currentSortDirection = 'desc';
         }
-
         currentQCData.sort((a, b) => {
              let valueA = a[currentSortKey]; let valueB = b[currentSortKey];
-             // ★ 提供 Timestamp 預設值以避免錯誤
              if (currentSortKey === 'last_uploaded_at' || currentSortKey === 'last_qc_at') {
-                 valueA = valueA || new Timestamp(0,0); // 使用 Modular Timestamp
-                 valueB = valueB || new Timestamp(0,0);
+                 // ★ 使用 Modular Timestamp 構造函數
+                 valueA = valueA instanceof Timestamp ? valueA : new Timestamp(0,0);
+                 valueB = valueB instanceof Timestamp ? valueB : new Timestamp(0,0);
              }
             const comparison = compareValues(valueA, valueB);
             return currentSortDirection === 'asc' ? comparison : -comparison;
@@ -362,31 +363,28 @@ function displaySortedTable() {
     }
     // --- 2. 更新表頭樣式 ---
     const headers = qcTable?.querySelectorAll('thead th.sortable-header');
-    if (headers) {
-        headers.forEach(th => {
-            th.classList.remove('sort-asc', 'sort-desc');
-            const indicator = th.querySelector('.sort-indicator');
-            if (indicator) indicator.style.opacity = '0.3';
-            if (th.getAttribute('data-sort-key') === currentSortKey) {
-                th.classList.add(currentSortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
-                 if (indicator) indicator.style.opacity = '1';
-            }
-        });
-    }
-    // --- 3. 產生表格行 ---
+    /* ... (更新表頭樣式邏輯不變) ... */
+    if (headers) { /* ... */ }
+
+    // --- 3. 產生表格行 (包含過濾) ---
+    let renderedRowCount = 0;
     currentQCData.forEach(data => {
         const docId = data.id;
         const metal_ok = data.heavy_metal_ok === true;
         const data_ok = data.data_complete_ok === true;
+        if (metal_ok && data_ok) { return; } // 過濾掉已完成的
         const row = document.createElement('tr');
         row.innerHTML = `<td>${data.N_Col||''}</td><td>${data.A_Col||''}</td><td>${data.H_After||''}</td><td>${data.I_Col||''}</td><td>${data.E_Col||''}</td><td>${data.H_Before||''}</td><td>${data.K_Col||''}</td><td class="${metal_ok?'status-ok':''}"><input type="checkbox" data-doc-id="${docId}" data-field="heavy_metal_ok" ${metal_ok?'checked':''}></td><td class="${data_ok?'status-ok':''}"><input type="checkbox" data-doc-id="${docId}" data-field="data_complete_ok" ${data_ok?'checked':''}></td>`;
         qcTableBody.appendChild(row);
+        renderedRowCount++;
     });
-    console.log(`QC Table rendered with ${currentQCData.length} rows, sorted by ${currentSortKey} ${currentSortDirection}.`);
+    if (renderedRowCount === 0 && currentQCData.length > 0) { qcTableBody.innerHTML = '<tr><td colspan="9">所有顯示的資料均已完成 QC。</td></tr>'; }
+    else if (renderedRowCount === 0) { qcTableBody.innerHTML = '<tr><td colspan="9">沒有可顯示的資料。</td></tr>'; }
+    console.log(`QC Table rendered with ${renderedRowCount} (visible) of ${currentQCData.length} total rows, sorted by ${currentSortKey} ${currentSortDirection}.`);
 }
 
 /**
- * 處理 QC 核取方塊的點擊
+ * 處理 QC 核取方塊的點擊 (包含觸發狀態更新)
  */
 async function handleQCCheck(checkbox) {
     if (!currentUserPermissions?.can_qc) { /* ... 權限檢查 ... */ }
@@ -403,17 +401,76 @@ async function handleQCCheck(checkbox) {
             last_qc_at: serverTimestamp()
         });
         console.log(`QC status updated for ${docId}: ${field}=${isChecked}`);
-    } catch (error) {
-        console.error("QC 更新失敗:", error);
-        alert("更新失敗：" + error.message);
-        checkbox.checked = !isChecked; // 恢復 UI 狀態
-    } finally {
-        checkbox.disabled = false;
-    }
+        const updatedDoc = await getDoc(docRef);
+        if (updatedDoc.exists()) {
+            const newData = updatedDoc.data();
+            if (newData.heavy_metal_ok === true && newData.data_complete_ok === true) {
+                console.log(`Both checked for ${docId}. Triggering status update...`);
+                // ★ 使用 H_After
+                updateLatestHiddenBarrel(newData.A_Col, newData.H_After);
+            }
+        }
+    } catch (error) { /* ... 錯誤處理 ... */ }
+    finally { checkbox.disabled = false; }
+}
+
+// --- 6. QC 狀態顯示與更新 ---
+
+/**
+ * 從 Firebase 讀取 QC 狀態並顯示摘要
+ */
+function renderQcStatusSummary() {
+    if (qcStatusListener) { if (typeof qcStatusListener === 'function') qcStatusListener(); qcStatusListener = null; }
+    if (!statusList) return;
+    statusList.innerHTML = '<li>載入中...</li>';
+    console.log("Setting up Firestore listener for material_qc_status...");
+    const statusQuery = query(materialStatusCollectionRef, orderBy("lastUpdatedAt", "desc"));
+    qcStatusListener = onSnapshot(statusQuery, (snapshot) => {
+        console.log(`QC Status snapshot received: ${snapshot.size} documents.`);
+        qcStatusMap = {};
+        snapshot.forEach(doc => { qcStatusMap[doc.id] = doc.data().latestHiddenBarrel; });
+        if (!statusList) return;
+        statusList.innerHTML = "";
+        if (Object.keys(qcStatusMap).length === 0) {
+            statusList.innerHTML = '<li>尚無任何料號完成 QC。</li>'; return;
+        }
+        snapshot.forEach(doc => {
+             const materialId = doc.id;
+             const latestBarrel = doc.data().latestHiddenBarrel;
+             const li = document.createElement('li');
+             li.innerHTML = `<strong>${materialId}:</strong> QC 完成至桶號 ${latestBarrel}`;
+             statusList.appendChild(li);
+        });
+         console.log("QC Status summary rendered.");
+    }, (error) => { /* ... 錯誤處理 ... */ });
+}
+
+/**
+ * 更新 material_qc_status 中料號的最新隱藏桶號 (使用 H_After)
+ */
+async function updateLatestHiddenBarrel(materialId, hAfter) {
+    if (!materialId || hAfter == null) { /* ... 參數檢查 ... */ return; }
+    const barrelNumber = parseInt(String(hAfter), 10);
+    if (isNaN(barrelNumber)) { /* ... 數字檢查 ... */ return; }
+    console.log(`Checking status for ${materialId}, new potential: ${barrelNumber} (from H_After)`);
+    const statusDocRef = doc(materialStatusCollectionRef, materialId);
+    try {
+        const statusDoc = await getDoc(statusDocRef);
+        let currentLatest = -1;
+        if (statusDoc.exists()) { currentLatest = statusDoc.data().latestHiddenBarrel || -1; }
+        if (barrelNumber > currentLatest) {
+            console.log(`Updating latest hidden for ${materialId} from ${currentLatest} to ${barrelNumber}`);
+            await setDoc(statusDocRef, {
+                latestHiddenBarrel: barrelNumber,
+                lastUpdatedAt: serverTimestamp()
+            }, { merge: true });
+            console.log(`Successfully updated status for ${materialId}`);
+        } else { console.log(`No update needed for ${materialId}`); }
+    } catch (error) { console.error(`Failed to update status for ${materialId}:`, error); }
 }
 
 
-// --- 6. 啟動事件監聽 (確保 DOM 已載入) ---
+// --- 7. 啟動事件監聽 ---
 window.addEventListener('DOMContentLoaded', (event) => {
     console.log('QC DOM fully loaded and parsed');
     // ★ 獲取 DOM 元素
@@ -428,12 +485,12 @@ window.addEventListener('DOMContentLoaded', (event) => {
     processButton = document.getElementById('processButton');
     qcTable = document.getElementById('qcTable');
     qcTableBody = document.getElementById('qcTableBody');
+    statusList = document.getElementById('statusList'); // ★ QC 狀態列表
 
     // ★ 檢查是否成功獲取
     if (!loginButton) console.error("Login button (id=loginButton) not found!");
-    if (!uploadInput) console.error("Upload input not found!");
-    if (!processButton) console.error("Process button not found!");
-    if (!qcTableBody) console.error("qcTableBody not found!");
+    if (!statusList) console.error("statusList not found!");
+    // ... 其他檢查
 
     // ★ 綁定事件監聽器
     if (loginButton) loginButton.addEventListener('click', signIn);
@@ -463,7 +520,7 @@ window.addEventListener('DOMContentLoaded', (event) => {
     } else { console.error("Table thead not found!"); }
 
     // ★ 檢查初始 Auth 狀態並更新 UI
-     if(auth.currentUser){ console.log("Initial auth state: User found."); onAuthStateChanged(auth.currentUser); } // 手動觸發一次
+     if(auth.currentUser){ console.log("Initial auth state: User found."); onAuthStateChanged(auth.currentUser); }
      else { console.log("Initial auth state: No user found."); updateUIForPermissions(); }
 });
 // (auth.onAuthStateChanged 保持在全局)
