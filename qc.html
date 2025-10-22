@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QC 資料系統</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); min-height: 100vh; box-sizing: border-box; }
+        .glass-container { background: rgba(255, 255, 255, 0.25); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 16px; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; } /* QC 頁面加寬 */
+        #authSection { margin-bottom: 20px; padding: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.3); text-align: center; }
+        #welcomeMessage { display: flex; justify-content: space-between; align-items: center; font-size: 1.1em; color: #333; }
+        #welcomeMessage button { background-color: #dc3545; width: auto; padding: 8px 15px; font-size: 14px; }
+        #welcomeMessage button:hover { background-color: #c82333; }
+        h2 { border-bottom: 1px solid rgba(255, 255, 255, 0.3); padding-bottom: 10px; color: #333; }
+        label { color: #333; font-weight: 500; }
+        form { margin-bottom: 20px; padding: 0; border: none; }
+        input, select, button { margin-bottom: 10px; width: 100%; padding: 12px; box-sizing: border-box; background: rgba(255, 255, 255, 0.5); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; color: #333; font-size: 16px; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; padding: 12px; font-size: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease; }
+        button:hover { background-color: #0056b3; transform: translateY(-3px); box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2); }
+        button:disabled { background-color: #aaa; box-shadow: none; cursor: not-allowed; }
+        button:disabled:hover { transform: none; box-shadow: none; background-color: #aaa; }
+        table { width: 100%; border-collapse: collapse; background: rgba(255, 255, 255, 0.2); border-radius: 8px; overflow: hidden; margin-top: 20px; }
+        th, td { border: 1px solid rgba(255, 255, 255, 0.3); padding: 10px; text-align: left; }
+        th { background-color: rgba(255, 255, 255, 0.3); color: #333; font-size: 14px; }
+        td { font-size: 13px; }
+        .is-hidden { display: none !important; }
+        /* QC 表格專用 */
+        #qcTable input[type="checkbox"] { width: auto; }
+        #qcTable td.status-ok { background-color: rgba(40, 167, 69, 0.2); } /* OK 顯示綠色 */
+        /* 上傳區域 */
+        .upload-area { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+        .upload-area input[type="file"] { display: none; }
+        .upload-area label { background-color: #17a2b8; border-radius: 8px; padding: 12px 20px; color: white; cursor: pointer; transition: background 0.2s; }
+        .upload-area label:hover { background-color: #138496; }
+        .upload-area button { width: auto; }
+        #fileName { color: #333; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+    <div class="container glass-container">
+        <div id="authSection">
+            <button id="loginButton">使用 Google 登入</button>
+            <div id="welcomeMessage" class="is-hidden">
+                <span>歡迎, <strong id="userName"></strong>!</span>
+                <button id="logoutButton">登出</button>
+            </div>
+        </div>
+        
+        <div id="permissionDenied" class="is-hidden">
+            <h2 style="color: #dc3545;">權限不足</h2>
+            <p>您的帳號沒有 QC (品管) 權限。此頁面僅供 10369 (林宥瑋) 操作。</p>
+            <a href="index.html">返回桶別紀錄系統</a>
+        </div>
+
+        <div id="qcApp" class="is-hidden">
+            <h2>Excel QC 資料系統</h2>
+            <p>上傳 Excel → 資料將自動新增/更新至下方表格 → 在表格中進行 QC 確認</p>
+
+            <div class="upload-area">
+                <label for="upload">1. 選擇 Excel 檔案</label>
+                <input type="file" id="upload" accept=".xlsx,.xls" />
+                <span id="fileName">未選擇檔案</span>
+                <button id="processButton" disabled>2. 上傳並處理資料</button>
+            </div>
+            
+            <h2>QC 確認清單 (即時更新)</h2>
+            <div style="overflow-x: auto;"> <table id="qcTable">
+                    <thead>
+                        <tr>
+                            <th>N欄</th>
+                            <th>A欄 (桶別)</th>
+                            <th>H欄後段</th>
+                            <th>備註 (缺日期)</th>
+                            <th>重金屬 OK?</th>
+                            <th>資料補完 OK?</th>
+                        </tr>
+                    </thead>
+                    <tbody id="qcTableBody">
+                        <tr><td colspan="6">資料載入中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-check-compat.js"></script>
+    
+    <script src="qc_script.js"></script>
+</body>
+</html>
