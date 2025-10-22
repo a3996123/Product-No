@@ -37,11 +37,37 @@
         /* (新) 刪除按鈕樣式 */
         .delete-btn { background-color: #dc3545; font-size: 12px; padding: 5px 8px; width: auto; margin-left: 10px; }
         .delete-btn:hover { background-color: #c82333; }
+        
+        /* --- (新) 頂部外部連結樣式 --- */
+        .external-link-container {
+            text-align: right;
+            margin-bottom: 5px; /* 與下方登入區塊的間距 */
+        }
+        .external-link-container a {
+            text-decoration: none;
+            color: #0056b3;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 5px 10px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s ease;
+        }
+        .external-link-container a:hover {
+            background: rgba(255, 255, 255, 0.5);
+            color: #000;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body>
 
     <div class="container glass-container">
+
+        <div class="external-link-container">
+            <a href="https://a3996123.github.io/horng-en/" target="_blank">宏恩產品查詢 &rarr;</a>
+        </div>
 
         <div id="authSection">
             <button id="loginButton">使用 Google 登入</button>
