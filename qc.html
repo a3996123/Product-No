@@ -22,7 +22,7 @@
         button:disabled:hover { transform: none; box-shadow: none; background-color: #aaa; }
         table { width: 100%; border-collapse: collapse; background: rgba(255, 255, 255, 0.2); border-radius: 8px; overflow: hidden; margin-top: 20px; }
         th, td { border: 1px solid rgba(255, 255, 255, 0.3); padding: 10px; text-align: left; }
-        th { background-color: rgba(255, 255, 255, 0.3); color: #333; font-size: 14px; position: relative; }
+        th { background-color: rgba(255, 255, 255, 0.3); color: #333; font-size: 14px; position: relative; } /* ★ position relative for indicator */
         td { font-size: 13px; }
         .is-hidden { display: none !important; }
         /* 上傳區域 */
@@ -32,12 +32,35 @@
         .upload-area label:hover { background-color: #138496; }
         .upload-area button { width: auto; }
         #fileName { color: #333; }
-        /* 排序樣式 */
-        .sortable-header { cursor: pointer; user-select: none; }
-        .sortable-header:hover { background-color: rgba(255, 255, 255, 0.4); }
-        .sort-indicator { display: inline-block; width: 0; height: 0; margin-left: 5px; vertical-align: middle; border-left: 4px solid transparent; border-right: 4px solid transparent; opacity: 0.3; }
-        .sortable-header.sort-asc .sort-indicator { border-bottom: 5px solid #333; opacity: 1; }
-        .sortable-header.sort-desc .sort-indicator { border-top: 5px solid #333; opacity: 1; }
+
+        /* ★★★ 排序樣式 ★★★ */
+        .sortable-header {
+            cursor: pointer;
+            user-select: none; /* 防止選中文本 */
+        }
+        .sortable-header:hover {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+        .sort-indicator {
+            display: inline-block;
+            width: 0;
+            height: 0;
+            margin-left: 5px;
+            vertical-align: middle;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            opacity: 0.3;
+        }
+        .sortable-header.sort-asc .sort-indicator {
+            border-bottom: 5px solid #333; /* 向上箭頭 */
+            opacity: 1;
+        }
+        .sortable-header.sort-desc .sort-indicator {
+            border-top: 5px solid #333; /* 向下箭頭 */
+            opacity: 1;
+        }
+        /* ★★★ END 排序樣式 ★★★ */
+
         /* QC 表格專用 */
         #qcTable input[type="checkbox"] { width: auto; cursor: pointer;}
         #qcTable td.status-ok { background-color: rgba(40, 167, 69, 0.2); } /* OK 顯示綠色 */
@@ -58,13 +81,13 @@
 
         <div id="permissionDenied" class="is-hidden">
             <h2 style="color: #dc3545;">權限不足</h2>
-            <p>您的帳號沒有 QC (品管) 權限。此頁面僅供 10369 (林宥瑋) 操作。</p>
+            <p>您的帳號沒有 QC (品管) 權限。此頁面僅供特定人員操作。</p>
             <a href="index.html">返回桶別紀錄系統</a>
         </div>
 
         <div id="qcApp" class="is-hidden">
             <h2>Excel QC 資料系統</h2>
-            <p>上傳 Excel → 資料將自動新增/更新至下方表格 → 在表格中進行 QC 確認</p>
+            <p>上傳 Excel → 資料將自動新增/更新至下方表格 → 點擊表頭可排序 → 在表格中進行 QC 確認</p>
 
             <div class="upload-area">
                 <label for="upload">1. 選擇 Excel 檔案</label>
@@ -102,6 +125,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-check-compat.js"></script>
 
-    <script src="qc_script.js"></script>
+    <script type="module" src="qc_script.js"></script>
 </body>
 </html>
