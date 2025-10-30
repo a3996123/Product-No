@@ -63,6 +63,11 @@ const searchMaterialSelect = document.getElementById('searchMaterialSelect');
 const searchBarrelInput = document.getElementById('searchBarrelInput');
 const searchResults = document.getElementById('searchResults');
 
+// ▼▼▼ 修改 1: 新增 DOM 元素 ▼▼▼
+const materialOptionsDatalist = document.getElementById('materialOptions');
+const materialListFilterInput = document.getElementById('materialListFilterInput');
+// ▲▲▲ 修改 1 結束 ▲▲▲
+
 // --- 3. 登入/登出/權限 邏輯 ---
 
 /**
@@ -84,7 +89,6 @@ function signOut() {
 
 /**
  * 監聽登入狀態的改變
- * ★★★ (已修改) 不論登入登出，最後都會呼叫 router() ★★★
  */
 auth.onAuthStateChanged(async (user) => {
     let initialLoad = (currentAuthUser === null && user === null); // 標記是否為頁面首次載入（且未登入）
@@ -102,7 +106,6 @@ auth.onAuthStateChanged(async (user) => {
                 console.warn("登入的 Google 帳號 " + user.email + " 不在員工名單中。將以訪客權限處理。");
                 currentUserPermissions = null; // 視為訪客
                 updateUIForPermissions();
-                // (可以選擇在這裡 signOut() 強制登出非名單用戶)
                  alert("您的 Google 帳號不在允許的員工名單中，將以訪客模式瀏覽。");
                  signOut(); // 強制登出
                  return; // 結束執行，等待登出後的 onAuthStateChanged
@@ -117,8 +120,6 @@ auth.onAuthStateChanged(async (user) => {
             welcomeMessage.classList.remove('is-hidden');
             if(currentUserPermissions) userName.innerText = currentUserPermissions.name;
             else userName.innerText = user.displayName || user.email; // 備用顯示
-
-            // ★ 登入後，呼叫 router 載入資料 (如果 hash 沒變，會載入首頁)
             router();
         }
     } else {
@@ -132,8 +133,6 @@ auth.onAuthStateChanged(async (user) => {
         welcomeMessage.classList.add('is-hidden');
         userName.innerText = "";
         updateUIForPermissions(); // 隱藏按鈕
-
-        // ★ 登出後/訪客首次載入，也呼叫 router 載入資料
         router();
     }
 });
@@ -153,12 +152,9 @@ function updateUIForPermissions() {
 
 // --- 4. 頁面導航 (路由) 邏輯 ---
 /**
- * ★★★ (已修改) 移除 !currentUserPermissions 檢查 ★★★
+ * 路由
  */
 function router() {
-    // (移除權限檢查 - 訪客也能路由)
-    // if (!currentUserPermissions) { ... return; } // <- 已移除
-
     if (currentListener) { currentListener(); currentListener = null; }
     if (materialListListener) { materialListListener(); materialListListener = null; }
     const hash = window.location.hash.substring(1);
@@ -173,50 +169,68 @@ function router() {
 
 /**
  * 顯示首頁
- * ★★★ (已修改) 總是嘗試載入資料 ★★★
+ * ★★★ (已修改) 修改 'searchMaterialSelect' 的處理方式 ★★★
  */
 function showHomePage() {
     homeView.style.display = 'block';
     detailView.style.display = 'none';
     tableBody.innerHTML = "";
     materialList.innerHTML = '<li>讀取中...</li>'; // 初始狀態
-    searchMaterialSelect.innerHTML = '<option value="">讀取料號中...</option>'; // 初始狀態
-    searchResults.style.display = 'none';
+    
+    // ▼▼▼ 修改 2: 清空輸入框 & datalist ▼▼▼
+    searchMaterialSelect.value = ""; // 清空輸入框
+    searchMaterialSelect.placeholder = "讀取料號中..."; // 初始狀態
+    materialOptionsDatalist.innerHTML = ""; // 清空 datalist
+    materialListFilterInput.value = ""; // 清空篩選框
+    // ▲▲▲ 修改 2 結束 ▲▲▲
 
-    // (UI 更新由 updateUIForPermissions 處理)
+    searchResults.style.display = 'none';
 
     // 總是嘗試載入料號
     materialListListener = materialsCollection
         .orderBy(fieldPath(), "asc")
         .onSnapshot((snapshot) => {
-            // (內部邏輯不變)
             materialList.innerHTML = "";
-            searchMaterialSelect.innerHTML = '<option value="">-- 請選擇料號 --</option>';
+            
+            // ▼▼▼ 修改 2: 清空 datalist ▼▼▼
+            materialOptionsDatalist.innerHTML = ""; 
+            searchMaterialSelect.placeholder = "-- 請輸入或選擇料號 --";
+            // ▲▲▲ 修改 2 結束 ▲▲▲
+
             if (snapshot.empty) {
                 materialList.innerHTML = '<li>尚無資料。' + (currentUserPermissions?.can_add ? '請由上方表單新增。' : '') + '</li>';
-                searchMaterialSelect.innerHTML = '<option value="">-- 尚無料號 --</option>';
+                
+                // ▼▼▼ 修改 2: 更新 placeholder ▼▼▼
+                searchMaterialSelect.placeholder = "-- 尚無料號 --";
+                // ▲▲▲ 修改 2 結束 ▲▲▲
                 return;
             }
             snapshot.forEach((doc) => {
                 const materialName = doc.id;
+                // 1. 填入料號列表 (格狀)
                 const li = document.createElement('li');
                 li.innerHTML = `<a href="#${materialName}">${materialName}</a>`;
                 materialList.appendChild(li);
+
+                // ▼▼▼ 修改 2: 填入 datalist ▼▼▼
+                // 2. 填入搜尋框的 datalist
                 const option = document.createElement('option');
                 option.value = materialName;
-                option.innerText = materialName;
-                searchMaterialSelect.appendChild(option);
+                // (datalist 不需要 innerText)
+                materialOptionsDatalist.appendChild(option);
+                // ▲▲▲ 修改 2 結束 ▲▲▲
             });
         }, (error) => {
             console.error("讀取料號清單失敗: ", error);
-            // ★ (新) 根據錯誤類型給提示
+            // ▼▼▼ 修改 2: 錯誤訊息改到 placeholder ▼▼▼
             if (error.code === 'permission-denied') {
                 materialList.innerHTML = '<li>讀取失敗 (權限不足)。請登入員工帳號。</li>';
-                searchMaterialSelect.innerHTML = '<option value="">讀取失敗 (權限不足)</option>';
+                searchMaterialSelect.placeholder = "讀取失敗 (權限不足)";
             } else {
                 materialList.innerHTML = '<li>讀取失敗。</li>';
-                searchMaterialSelect.innerHTML = '<option value="">讀取失敗</option>';
+                searchMaterialSelect.placeholder = "讀取失敗";
             }
+            // ▲▲▲ 修改 2 結束 ▲▲▲
         });
     // 確保 UI 正確 (例如首次載入時)
     updateUIForPermissions();
@@ -224,15 +238,12 @@ function showHomePage() {
 
 /**
  * 顯示詳細頁
- * ★★★ (已修改) 總是嘗試載入資料 ★★★
  */
 function showDetailPage(materialLot) {
     homeView.style.display = 'none';
     detailView.style.display = 'block';
     detailTitle.innerText = `料號: ${materialLot}`;
     if(barrelNumberInput) barrelNumberInput.value = "";
-
-    // (UI 更新由 updateUIForPermissions 處理)
 
     const canDelete = currentUserPermissions?.can_delete === true;
 
@@ -242,7 +253,6 @@ function showDetailPage(materialLot) {
         .orderBy("timestamp", "desc")
         .orderBy("barrelNumber_sort", "desc")
         .onSnapshot((snapshot) => {
-            // (內部邏輯不變)
             tableBody.innerHTML = "";
             if (snapshot.empty) {
                 tableBody.innerHTML = '<tr><td colspan="4">目前沒有紀錄</td></tr>';
@@ -259,7 +269,6 @@ function showDetailPage(materialLot) {
             console.error("Firebase 讀取失敗: ", error);
             if (error.code === 'permission-denied') {
                 tableBody.innerHTML = '<tr><td colspan="4">讀取失敗 (權限不足)。請登入員工帳號。</td></tr>';
-                // (不需要 signOut(), 讓使用者能返回首頁)
             } else {
                  tableBody.innerHTML = '<tr><td colspan="4">讀取失敗。</td></tr>';
             }
@@ -269,14 +278,11 @@ function showDetailPage(materialLot) {
 }
 
 // --- 5. 刪除桶別 邏輯 ---
-// (此區塊無變更, 內部已有權限檢查)
 async function handleDeleteClick(docId) {
-    // ★ 前端權限檢查 (雙重保險)
     if (!currentUserPermissions?.can_delete) {
         alert("權限不足：只有管理員才能刪除資料。");
         return;
     }
-    // (後續邏輯不變)
     let barrelName = `ID: ${docId}`;
     try {
         const docSnap = await recordsCollection.doc(docId).get();
@@ -288,7 +294,7 @@ async function handleDeleteClick(docId) {
             console.log("文件已刪除:", docId);
         } catch (error) {
             console.error("刪除失敗:", error);
-            if (error.code === 'permission-denied') { // 雖然前端擋了，後端規則是最終防線
+            if (error.code === 'permission-denied') { 
                 alert("權限不足：只有管理員才能刪除資料。");
             } else {
                 alert("刪除時發生錯誤。");
@@ -298,13 +304,11 @@ async function handleDeleteClick(docId) {
 }
 
 // --- 6. 表單提交邏輯 ---
-// ( (桶別紀錄) 和 (新料號) 表單邏輯無變更, 內部已有權限檢查)
 recordForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!currentUserPermissions?.can_add) {
         alert("權限不足：您無法新增資料。"); return;
     }
-    // ... (後續邏輯不變)
     const operatorName = currentUserPermissions.name;
     const operatorId = currentUserPermissions.employee_id;
     const barrelNumberString = barrelNumberInput.value.trim();
@@ -329,7 +333,6 @@ newMaterialForm.addEventListener("submit", async (e) => {
     if (!currentUserPermissions?.can_add) {
         alert("權限不足：您無法新增資料。"); return;
     }
-    // ... (後續邏輯不變)
     let rawName = newMaterialInput.value.trim();
     if (!rawName) { alert("請輸入料號！"); return; }
     let normalizedName = rawName.toUpperCase();
@@ -350,13 +353,11 @@ newMaterialForm.addEventListener("submit", async (e) => {
 
 /**
  * (搜尋) 表單提交
- * ★★★ (已修改) 移除 !currentUserPermissions 檢查 ★★★
  */
 searchForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    // (移除權限檢查 - 訪客也能搜尋)
-    // if (!currentUserPermissions) { alert("請先登入。"); return; }
-
+    
+    // ★★★ (已修改) 這裡的 'searchMaterialSelect.value' 會自動抓取 input 的值 ★★★
     const materialLot = searchMaterialSelect.value;
     const rawBarrelText = searchBarrelInput.value.trim();
 
@@ -411,7 +412,6 @@ searchForm.addEventListener("submit", async (e) => {
     } catch (error) {
         console.error("Search failed: ", error);
         searchResults.innerHTML = `<p style="color: red;">搜尋失敗！${error.message}</p>`;
-        // (保持錯誤提示)
         if (error.code === 'permission-denied' && !currentUserPermissions) {
              searchResults.innerHTML = '<p style="color: red;">搜尋失敗！訪客權限不足，請登入員工帳號。';
         } else if (error.code === 'failed-precondition') {
@@ -425,7 +425,56 @@ searchForm.addEventListener("submit", async (e) => {
 
 
 // --- 7. 啟動路由與事件監聽 ---
-// (此區塊無變更)
+
+// ▼▼▼ 修改 3: 新增篩選功能 ▼▼▼
+/**
+ * (新) 篩選料號列表 (格狀)
+ */
+function filterMaterialList() {
+    const filterText = materialListFilterInput.value.toUpperCase();
+    const items = materialList.getElementsByTagName('li');
+    let found = false;
+    
+    // 移除舊的 "查無結果"
+    const oldNoResult = document.getElementById('noMaterialResult');
+    if (oldNoResult) oldNoResult.remove();
+
+    for (let i = 0; i < items.length; i++) {
+        const a = items[i].getElementsByTagName('a')[0];
+        if (a) { // 確保 'li' 裡面有 'a' 標籤
+            const txtValue = a.textContent || a.innerText;
+            if (txtValue.toUpperCase().indexOf(filterText) > -1) {
+                items[i].style.display = ""; // 顯示
+                found = true;
+            } else {
+                items[i].style.display = "none"; // 隱藏
+            }
+        } else {
+            // 處理 "讀取中..." 或 "尚無資料"
+            if(items[i].id !== 'noMaterialResult') {
+                items[i].style.display = "none"; // 篩選時，隱藏 "尚無資料" 等提示
+            }
+        }
+    }
+
+    // 如果都找不到，且列表不是空的
+    if (!found && items.length > 0 && !items[0].innerText.includes("讀取中")) {
+        let noResultLi = document.createElement('li');
+        noResultLi.id = 'noMaterialResult';
+        noResultLi.innerText = '查無符合的料號';
+        noResultLi.style.textAlign = 'center';
+        noResultLi.style.width = '100%';
+        noResultLi.style.color = '#555';
+        noResultLi.style.flexBasis = '100%'; // 佔滿整行
+        materialList.appendChild(noResultLi);
+    }
+}
+
+// (新) 綁定篩選事件
+materialListFilterInput.addEventListener('input', filterMaterialList);
+// ▲▲▲ 修改 3 結束 ▲▲▲
+
+
 document.addEventListener('click', function(event) {
     if (event.target.id === 'loginButton') signIn();
     if (event.target.id === 'logoutButton') signOut();

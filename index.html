@@ -33,32 +33,13 @@
         table { width: 100%; border-collapse: collapse; background: rgba(255, 255, 255, 0.2); border-radius: 8px; overflow: hidden; }
         th, td { border: 1px solid rgba(255, 255, 255, 0.3); padding: 12px; text-align: left; }
         th { background-color: rgba(255, 255, 255, 0.3); color: #333; }
-        .is-hidden { display: none !important; } /* (新) 輔助 class */
-        /* (新) 刪除按鈕樣式 */
+        .is-hidden { display: none !important; } /* 輔助 class */
         .delete-btn { background-color: #dc3545; font-size: 12px; padding: 5px 8px; width: auto; margin-left: 10px; }
         .delete-btn:hover { background-color: #c82333; }
         
-        /* --- (新) 頂部外部連結樣式 --- */
-        .external-link-container {
-            text-align: right;
-            margin-bottom: 5px; /* 與下方登入區塊的間距 */
-        }
-        .external-link-container a {
-            text-decoration: none;
-            color: #0056b3;
-            font-weight: 600;
-            font-size: 14px;
-            padding: 5px 10px;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.2s ease;
-        }
-        .external-link-container a:hover {
-            background: rgba(255, 255, 255, 0.5);
-            color: #000;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
+        .external-link-container { text-align: right; margin-bottom: 5px; }
+        .external-link-container a { text-decoration: none; color: #0056b3; font-weight: 600; font-size: 14px; padding: 5px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.2s ease; }
+        .external-link-container a:hover { background: rgba(255, 255, 255, 0.5); color: #000; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
 <body>
@@ -82,7 +63,9 @@
             <h2 style="color: #28a745; border-bottom-color: #28a745;">搜尋桶別</h2>
             <form id="searchForm" style="border-color: #ccc;">
                 <label for="searchMaterialSelect">1. 選擇料號:</label>
-                <select id="searchMaterialSelect" required><option value="">請先登入...</option></select>
+                <input list="materialOptions" id="searchMaterialSelect" placeholder="輸入或選擇料號..." required>
+                <datalist id="materialOptions">
+                    </datalist>
                 <label for="searchBarrelInput" style="margin-top: 10px; display: block;">2. 輸入桶別 (可選):</label>
                 <input type="text" id="searchBarrelInput" placeholder="輸入桶別 (可選，留空則查詢全部)">
                 <button type="submit" style="background-color: #28a745;">搜尋</button>
@@ -97,6 +80,8 @@
             </form>
 
             <h2 style="border-top: 2px solid #eee; padding-top: 20px;">選擇料號</h2>
+            
+            <input type="text" id="materialListFilterInput" placeholder="在此輸入文字以篩選下方料號..." style="margin-bottom: 15px;">
             <ul id="materialList" class="material-list"><li>請先登入...</li></ul>
         </div>
 

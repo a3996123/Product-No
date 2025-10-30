@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宏恩產品統計</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- 1. 從 index.html 繼承的基礎樣式 --- */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .glass-container {
+            background: rgba(255, 255, 255, 0.25); 
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 16px;
+            padding: 20px;
+        }
+        
+        input, select {
+            margin-bottom: 10px; 
+            width: 100%; 
+            padding: 12px; 
+            box-sizing: border-box;
+            background: rgba(255, 255, 255, 0.85); 
+            border: 1px solid rgba(0, 0, 0, 0.2);  
+            border-radius: 8px;
+            color: #000; 
+            font-size: 16px;
+        }
+        input::placeholder {
+            color: #555;
+        }
+        
+        select:invalid {
+            color: #555;
+        }
+        select option[value=""][disabled] {
+            color: #555;
+        }
+
+        button { 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            cursor: pointer;
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            width: auto; 
+            margin-bottom: 10px; 
+        }
+        button:hover:not(:disabled) { 
+            background-color: #0056b3; 
+            transform: translateY(-3px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+        }
+        button:disabled { 
+            background-color: #aaa; 
+            box-shadow: none; 
+            cursor: not-allowed; 
+        }
+
+        h1 {
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 2.2em; 
+            text-align: center; 
+            padding-bottom: 0; 
+            border-bottom: none; 
+        }
+        h2 { 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3); 
+            padding-bottom: 10px; 
+            color: #333;
+            margin-top: 30px; 
+        }
+        
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            overflow: hidden; 
+            margin-top: 20px; 
+            font-size: 12px; 
+        }
+        th, td { 
+            border: 1px solid rgba(255, 255, 255, 0.3); 
+            padding: 8px; 
+            text-align: left; 
+            white-space: nowrap; 
+        }
+        th { 
+            background-color: rgba(255, 255, 255, 0.3);
+            color: #333;
+            font-size: 13px; 
+            position: relative; 
+        }
+
+        label { color: #333; font-weight: 500; display: block; margin-bottom: 5px; }
+
+        #filterBar label {
+            color: #002b5c; 
+            font-weight: 600; 
+            flex-shrink: 0; 
+            margin-right: 10px; 
+        }
+
+        /* --- 2. spec_viewer.html 專屬樣式 --- */
+        
+        .container { 
+            max-width: 1800px; 
+            margin: 20px auto; 
+            position: relative; 
+        }
+        
+        #welcomeMessage { 
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 0.9em; 
+            color: #333; 
+            display: flex;
+            align-items: center;
+            gap: 10px; 
+            padding: 5px 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            z-index: 5; 
+        }
+        #welcomeMessage button { 
+            background-color: #dc3545; 
+            width: auto; 
+            padding: 5px 10px;  
+            font-size: 12px;    
+            margin-bottom: 0;   
+        } 
+        #welcomeMessage button:hover { 
+            background-color: #c82333;
+        }
+        
+        input[type="file"] { display: none; }
+        input[type="file"] + label { 
+            display: inline-block; 
+            background-color: #17a2b8; 
+            color: white; 
+            padding: 10px 15px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            transition: background-color 0.2s; 
+            white-space: nowrap; 
+            margin-bottom: 0; 
+            width: auto; 
+            font-size: 16px; 
+            border: 1px solid rgba(0, 0, 0, 0.1); 
+        }
+        input[type="file"] + label:hover { background-color: #138496; }
+
+        .is-hidden { display: none !important; }
+        
+        .upload-area { 
+            display: flex; 
+            align-items: center; 
+            gap: 15px; 
+            margin-bottom: 20px; 
+            padding: 15px; 
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px; 
+        }
+        
+        #fileName { 
+            color: #333; 
+            flex-grow: 1; 
+            text-align: left; 
+            background: none; 
+            border: none; 
+            padding: 0; 
+            margin-bottom: 0; 
+            font-size: 16px; 
+            box-shadow: none;
+        } 
+        
+        #processButton { width: auto; padding-left: 20px; padding-right: 20px; margin-bottom: 0; }
+        
+        .stats-display { 
+            margin-top: 20px; 
+            padding: 15px; 
+            background: rgba(255, 255, 255, 0.2); 
+            border: 1px solid rgba(255, 255, 255, 0.18); 
+            border-radius: 8px; 
+        }
+        .stats-display h3 { margin-top: 0; font-size: 1.1em; color: #1a5f7a; border-bottom: 1px solid rgba(26, 95, 122, 0.3); padding-bottom: 5px; margin-bottom: 10px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 0.9em; }
+        .stat-item span { font-weight: bold; color: #0056b3; }
+        
+        .stat-title-clickable {
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-color: rgba(0, 86, 179, 0.4);
+            text-decoration-style: dotted;
+        }
+        .stat-title-clickable:hover {
+            color: #0056b3;
+            text-decoration-color: #0056b3;
+        }
+
+        .sortable-header { cursor: pointer; user-select: none; }
+        .sortable-header:hover { background-color: rgba(255, 255, 255, 0.6); }
+        .sort-indicator { display: inline-block; width: 0; height: 0; margin-left: 5px; vertical-align: middle; border-left: 4px solid transparent; border-right: 4px solid transparent; opacity: 0.3; }
+        .sortable-header.sort-asc .sort-indicator { border-bottom: 5px solid #333; opacity: 1; }
+        .sortable-header.sort-desc .sort-indicator { border-top: 5px solid #333; opacity: 1; }
+        
+        #stickyFilterWrapper {
+            position: -webkit-sticky; 
+            position: sticky;
+            top: 10px; 
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.6); 
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px; 
+            padding: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(31, 38, 135, 0.1);
+        }
+        #stickyFilterWrapper .upload-area,
+        #stickyFilterWrapper #timeFilterBar {
+            margin-bottom: 0; 
+            box-shadow: none; 
+            background: none; 
+            border: none;
+            padding-top: 5px;
+            padding-bottom: 5px;
+        }
+        #stickyFilterWrapper #timeFilterBar {
+            border-top: 1px solid rgba(255, 255, 255, 0.3); 
+            margin-top: 0; 
+        }
+
+        #timeFilterBar {
+            display: flex;
+            flex-wrap: wrap; 
+            gap: 10px;
+            padding: 10px 15px;
+        }
+        #timeFilterBar button {
+            flex-grow: 0; 
+            width: auto;  
+            flex-shrink: 0; 
+            padding: 8px 12px;
+            font-size: 14px;
+            margin-bottom: 0;
+            background-color: #6c757d; 
+            opacity: 0.8;
+            transform: translateY(0);
+        }
+        #timeFilterBar button:hover:not(:disabled) {
+            background-color: #5a6268;
+            opacity: 1;
+            transform: translateY(-2px); 
+        }
+        #timeFilterBar button.active {
+            background-color: #007bff; 
+            opacity: 1;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        /* --- (Modal 樣式... 保持不變) --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+            z-index: 100; display: flex; align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: #fff; border-radius: 16px; padding: 20px;
+            width: 90%; max-width: 800px; box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px;
+        }
+        .modal-header h2 { margin: 0; font-size: 1.4em; color: #333; border: none; }
+        .modal-close-button {
+            font-size: 24px; font-weight: bold; color: #aaa; cursor: pointer;
+            border: none; background: none; line-height: 1;
+        }
+        .modal-close-button:hover { color: #333; }
+        .modal-body { max-height: 60vh; overflow-y: auto; }
+        
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .container { margin: 10px auto; }
+            .glass-container { padding: 15px; }
+            .upload-area, #filterBar { flex-wrap: wrap; gap: 10px; }
+            .stats-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+            table { font-size: 11px; }
+            th, td { padding: 6px; }
+            #stickyFilterWrapper { top: 5px; }
+            .modal-content { width: 95%; padding: 15px; }
+            .modal-header h2 { font-size: 1.2em; }
+            
+            #welcomeMessage {
+                top: 10px;
+                right: 10px;
+                padding: 3px 6px;
+                font-size: 0.8em;
+            }
+            #welcomeMessage button {
+                padding: 3px 5px;
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container glass-container">
+        
+        <div id="welcomeMessage" class="is-hidden">
+            <span>歡迎, <strong id="userName"></strong>!</span>
+            <button id="logoutButton">登出</button> 
+        </div>
+
+        
+        <form id="loginForm" class="glass-container" style="max-width: 400px; margin: 20px auto; padding: 25px;">
+            <h2 style="margin-top: 0; text-align: center;">規格系統登入</h2>
+            <div style="margin-bottom: 15px;">
+                <label for="employeeId" style="font-weight: 500;">員工編號:</label>
+                <input type="text" id="employeeId" required>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label for="password" style="font-weight: 500;">密碼:</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" id="loginButton" style="width: 100%; font-size: 18px;">登入</button>
+            <p id="loginError" style="color: #dc3545; text-align: center; margin-top: 10px; display: none;"></p>
+        </form>
+        
+        <div id="permissionDenied" class="is-hidden">
+            <h2 style="color: #dc3545;">權限不足</h2>
+            <p>您的帳號沒有權限使用此工具。此工具僅供 10215 及 10369 操作。</p>
+             <a href="index.html">返回桶別紀錄系統</a>
+             <a href="qc.html" style="margin-left: 10px;">前往 QC 系統</a>
+        </div>
+
+        <div id="specApp" class="glass-container is-hidden" style="margin-top: 20px;">
+            <h1>宏恩產品統計</h1> 
+            <p>上傳 Excel (需有名稱為 "整年" 的分頁) → 點擊預覽 → 確認無誤後點擊儲存</p>
+
+            <div class="upload-area">
+                <input type="file" id="upload" accept=".xlsx,.xls" />
+                <label for="upload">選擇 Excel 檔案</label>
+                <span id="fileName">未選擇檔案</span>
+                <button id="processButton" disabled>預覽處理結果</button>
+                <button id="saveButton" class="is-hidden" style="background-color: #28a745;">
+                    儲存至 NAS
+                </button>
+            </div>
+
+            <div id="stickyFilterWrapper">
+                <div id="filterBar" class="upload-area is-hidden">
+                    <label for="productFilter" style="margin-bottom: 0;">篩選產品編號:</label>
+                    <select id="productFilter" style="flex-grow: 1;" required> 
+                        <option value="" disabled selected>-- 請選擇產品編號 --</option>
+                    </select>
+                    <button id="clearFilterButton" style="width: auto; padding: 8px 15px; font-size: 14px; background-color: #6c757d;">
+                        清除篩選
+                    </button>
+                </div>
+                <div id="timeFilterBar" class="is-hidden">
+                    <button data-filter="latest-5">近5筆</button>
+                    <button data-filter="latest-10">近10筆</button>
+                    <button data-filter="latest-20">近20筆</button>
+                    <button data-filter="latest-50">近50筆</button>
+                    <button data-filter="month-1">近1個月</button>
+                    <button data-filter="month-3">近3個月</button>
+                    <button data-filter="month-6">近半年</button>
+                    <button data-filter="all" class="active">全部</button>
+                </div>
+            </div>
+
+            <h2>預覽結果 (點擊表頭排序)</h2>
+             <div id="statsDisplay" class="stats-display is-hidden">
+                <h3>統計數據 (<span id="statsRecordCount">0</span> 筆)</h3>
+                <div id="statsGrid" class="stats-grid"></div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table id="specTable">
+                    <thead><tr></tr></thead>
+                    <tbody id="specTableBody">
+                        <tr><td colspan="30">請先登入...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div> 
+    </div> 
+
+    <div id="histogramModal" class="modal-overlay is-hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">數據分佈圖</h2>
+                <button id="modalCloseButton" class="modal-close-button">&times;</button>
+            </div>
+            <div class="modal-body">
+                <canvas id="histogramCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <script src="spec_script.js"></script>
+</body>
+</html>
